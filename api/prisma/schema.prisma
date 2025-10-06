@@ -1,0 +1,115 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id               Int                  @id @default(autoincrement()) @map("user_id")
+  name             String               @db.VarChar(100)
+  email            String               @unique @db.VarChar(100)
+  passwordHash     String               @map("password_hash") @db.VarChar(255)
+  phone            String?              @db.VarChar(15)
+  registrationDate DateTime             @default(now()) @map("registration_date")
+  recipes          Recipe[]
+  ingredients      Ingredient[]
+  purchases        Purchase[]
+  operationalCosts OperationalExpense[]
+
+  @@map("users")
+}
+
+model Ingredient {
+  id              Int              @id @default(autoincrement()) @map("ingredient_id")
+  userId          Int              @map("user_id")
+  name            String           @map("ingredient_name") @db.VarChar(100)
+  unitOfMeasure   String           @map("unit_of_measure") @db.VarChar(10)
+  category        String?          @db.VarChar(100)
+  totalCost       Decimal          @map("total_cost") @db.Decimal(10, 2) @default(0)
+  totalAmount     Decimal          @map("total_amount") @db.Decimal(10, 2) @default(0)
+  costPerUnit     Decimal          @map("cost_per_unit") @db.Decimal(10, 4) @default(0)
+  registrationDate DateTime        @default(now()) @map("registration_date")
+  recipes         RecipeIngredient[]
+  purchaseItems   PurchaseItem[]
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("ingredients")
+}
+
+model Recipe {
+  id            Int                 @id @default(autoincrement()) @map("recipe_id")
+  userId        Int                 @map("user_id")
+  name          String              @map("recipe_name") @db.VarChar(100)
+  description   String?             @db.Text
+  servings      Int                 @default(1)
+  totalCost     Decimal             @map("total_cost") @db.Decimal(10, 2)
+  costPerServing Decimal            @map("cost_per_serving") @db.Decimal(10, 2) @default(0)
+  suggestedPrice Decimal            @map("suggested_price") @db.Decimal(10, 2)
+  creationDate  DateTime            @default(now()) @map("creation_date")
+  user          User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ingredients   RecipeIngredient[]
+
+  @@map("recipes")
+}
+
+model RecipeIngredient {
+  recipeId     Int        @map("recipe_id")
+  ingredientId Int        @map("ingredient_id")
+  quantity     Decimal    @db.Decimal(10, 2)
+  recipe       Recipe     @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  ingredient   Ingredient @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
+
+  @@id([recipeId, ingredientId])
+  @@map("recipe_ingredients")
+}
+
+model Purchase {
+  id           Int            @id @default(autoincrement()) @map("purchase_id")
+  userId       Int            @map("user_id")
+  purchaseDate DateTime       @map("purchase_date") @db.Date
+  supplier     String?        @db.VarChar(100)
+  receiptImage String?        @map("receipt_image") @db.VarChar(255)
+  user         User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items        PurchaseItem[]
+
+  @@map("purchases")
+}
+
+model PurchaseItem {
+  id           Int        @id @default(autoincrement()) @map("purchase_item_id")
+  purchaseId   Int        @map("purchase_id")
+  ingredientId Int        @map("ingredient_id")
+  quantity     Decimal    @db.Decimal(10, 2)
+  totalPrice   Decimal    @map("total_price") @db.Decimal(10, 2)
+  unitPrice    Decimal    @map("unit_price") @db.Decimal(10, 2)
+  purchase     Purchase   @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  ingredient   Ingredient @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
+
+  @@map("purchase_items")
+}
+
+model OperationalExpense {
+  id               Int         @id @default(autoincrement()) @map("expense_id")
+  userId           Int         @map("user_id")
+  description      String      @db.VarChar(100)
+  monthlyValue     Decimal     @map("monthly_value") @db.Decimal(10, 2)
+  registrationDate DateTime    @default(now()) @map("registration_date") @db.Date
+  expenseType      ExpenseType @map("expense_type")
+  user             User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("operational_expenses")
+}
+
+enum ExpenseType {
+  FIXED
+  VARIABLE
+}
