@@ -1,0 +1,16 @@
+CookSmart: Resumo do Projeto
+O projeto visa criar um app para ajudar pequenos empreendedores a definir o preço de venda de seus produtos. 
+Muitos empreendedores iniciantes têm dificuldade em calcular o preço correto dos seus produtos, seja por não conhecerem os custos envolvidos ou por falta de ferramentas acessíveis.
+O sistema resolve esse problema oferecendo uma solução prática que:
+Registra ingredientes, insumos e matérias-primas, permitindo controlar preços unitários e históricos de compras.
+Permite criar receitas ou produtos finais, associando automaticamente os custos diretos dos insumos usados.
+Integra custos operacionais (fixos e variáveis) ao cálculo, garantindo uma visão realista do preço de produção.
+Faz o cálculo automático do custo total e sugere um preço de venda, considerando a margem de lucro configurada pelo usuário.
+Inclui integração com OCR (Reconhecimento Óptico de Caracteres) para leitura automática de notas fiscais, facilitando o lançamento de insumos.
+Fornece relatórios e histórico para acompanhar a evolução de custos e apoiar a tomada de decisão.
+🎯 Objetivos do Projeto
+Ajudar pequenos empreendedores a definir preços justos e sustentáveis para seus produtos.
+Automatizar cálculos de custos diretos e indiretos, evitando erros comuns em planilhas manuais.
+Reduzir o tempo e esforço na inserção de dados usando OCR para leitura de notas fiscais.
+Promover maior controle financeiro, permitindo acompanhar despesas, insumos e receitas de forma integrada.
+Fornecer relatórios claros e intuitivos, apoiando decisões estratégicas de precificação e gestão.
