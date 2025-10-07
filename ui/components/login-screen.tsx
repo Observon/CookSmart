@@ -1,24 +1,40 @@
 "use client"
 
-import type React from "react"
-
 import { useState } from "react"
+
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { ChefHat } from "lucide-react"
+import { useAuth } from "@/context/auth-context"
 
-interface LoginScreenProps {
-  onLogin: () => void
-}
-
-export function LoginScreen({ onLogin }: LoginScreenProps) {
+export function LoginScreen() {
+  const [mode, setMode] = useState<"login" | "register">("login")
+  const [name, setName] = useState("")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
+  const [phone, setPhone] = useState("")
+  const [error, setError] = useState<string | null>(null)
+  const { login, register, loading } = useAuth()
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    onLogin()
+    setError(null)
+
+    try {
+      if (mode === "login") {
+        await login({ email, password })
+      } else {
+        await register({ name, email, password, phone: phone || undefined })
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Não foi possível realizar a operação")
+    }
+  }
+
+  const toggleMode = () => {
+    setMode((prev) => (prev === "login" ? "register" : "login"))
+    setError(null)
   }
 
   return (
@@ -37,6 +53,22 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
 
         {/* Login Form */}
         <form onSubmit={handleSubmit} className="space-y-6">
+          {mode === "register" && (
+            <div className="space-y-2">
+              <Label htmlFor="name" className="text-foreground">
+                Nome
+              </Label>
+              <Input
+                id="name"
+                placeholder="Seu nome"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="h-12 text-base bg-card"
+                required
+              />
+            </div>
+          )}
+
           <div className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="email" className="text-foreground">
@@ -67,13 +99,32 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
                 required
               />
             </div>
+
+            {mode === "register" && (
+              <div className="space-y-2">
+                <Label htmlFor="phone" className="text-foreground">
+                  Telefone (opcional)
+                </Label>
+                <Input
+                  id="phone"
+                  type="tel"
+                  placeholder="+55 11 99999-9999"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  className="h-12 text-base bg-card"
+                />
+              </div>
+            )}
           </div>
+
+          {error && <p className="text-sm text-destructive text-center">{error}</p>}
 
           <Button
             type="submit"
             className="w-full h-12 text-base font-semibold bg-primary hover:bg-primary/90 text-primary-foreground"
+            disabled={loading}
           >
-            Entrar
+            {loading ? "Carregando..." : mode === "login" ? "Entrar" : "Criar conta"}
           </Button>
         </form>
 
@@ -83,7 +134,10 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
             Esqueceu a senha?
           </button>
           <p className="text-sm text-muted-foreground">
-            Não tem conta? <button className="text-primary font-semibold hover:underline">Cadastre-se</button>
+            {mode === "login" ? "Não tem conta?" : "Já possui conta?"}{" "}
+            <button type="button" onClick={toggleMode} className="text-primary font-semibold hover:underline">
+              {mode === "login" ? "Cadastre-se" : "Entrar"}
+            </button>
           </p>
         </div>
       </div>
