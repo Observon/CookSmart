@@ -1,4 +1,8 @@
-import { ConflictException, Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcryptjs';
@@ -17,7 +21,9 @@ export class AuthService {
   ) {}
 
   async register(dto: RegisterDto): Promise<AuthResponseDto> {
-    const existing = await this.prisma.user.findUnique({ where: { email: dto.email } });
+    const existing = await this.prisma.user.findUnique({
+      where: { email: dto.email },
+    });
     if (existing) {
       throw new ConflictException('E-mail já cadastrado');
     }
@@ -36,7 +42,9 @@ export class AuthService {
   }
 
   async login(dto: LoginDto): Promise<AuthResponseDto> {
-    const user = await this.prisma.user.findUnique({ where: { email: dto.email } });
+    const user = await this.prisma.user.findUnique({
+      where: { email: dto.email },
+    });
     if (!user) {
       throw new UnauthorizedException('Credenciais inválidas');
     }
@@ -54,7 +62,12 @@ export class AuthService {
     return bcrypt.hash(password, saltRounds);
   }
 
-  private buildAuthResponse(user: { id: number; name: string; email: string; phone: string | null }): AuthResponseDto {
+  private buildAuthResponse(user: {
+    id: number;
+    name: string;
+    email: string;
+    phone: string | null;
+  }): AuthResponseDto {
     const payload: JwtPayload = {
       sub: user.id,
       email: user.email,

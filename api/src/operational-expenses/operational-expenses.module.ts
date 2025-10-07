@@ -4,6 +4,6 @@ import { OperationalExpensesController } from './operational-expenses.controller
 
 @Module({
   providers: [OperationalExpensesService],
-  controllers: [OperationalExpensesController]
+  controllers: [OperationalExpensesController],
 })
 export class OperationalExpensesModule {}

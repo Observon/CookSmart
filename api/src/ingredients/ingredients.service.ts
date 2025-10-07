@@ -85,7 +85,10 @@ export class IngredientsService {
     return { id };
   }
 
-  private async ensureIngredientExists(userId: number, id: number): Promise<Ingredient> {
+  private async ensureIngredientExists(
+    userId: number,
+    id: number,
+  ): Promise<Ingredient> {
     const ingredient = await this.prisma.ingredient.findFirst({
       where: { id, userId },
       select: {
