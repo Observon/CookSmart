@@ -182,11 +182,34 @@ pnpm run lint         # Linting
 
 ## 🔐 Autenticação
 
-O sistema utiliza JWT (JSON Web Tokens) para autenticação. Os usuários devem:
+O sistema utiliza JWT (JSON Web Tokens) e contempla tanto o backend quanto o fluxo do frontend:
 
-1. Registrar uma conta via endpoint `/auth/register`
-2. Fazer login via `/auth/login` para obter o token
-3. Incluir o token no header `Authorization: Bearer <token>` nas requisições protegidas
+- **Registro/Login via UI**: a tela `LoginScreen` (`ui/components/login-screen.tsx`) permite alternar entre cadastro e login. Ela consome o hook `useAuth()` exposto por `AuthProvider` (`ui/context/auth-context.tsx`).
+- **Persistência de sessão**: o `AuthProvider` salva token e usuário no `localStorage`, protege `ui/app/page.tsx` e expõe `logout()`.
+- **Requisições autenticadas**: os hooks de dados (`useIngredients`, `useRecipes`) usam `apiFetch()` para enviar `Authorization: Bearer <token>` automaticamente.
+- **Endpoints REST**: é possível interagir diretamente com `/auth/register` e `/auth/login` (para automações ou testes via HTTP clients).
+
+Certifique-se de definir `JWT_SECRET` e `FRONTEND_ORIGIN` no backend para que CORS aceite chamadas do frontend.
+
+## 🔄 Hooks de Dados
+
+Os principais fluxos do frontend utilizam hooks que encapsulam comunicação com a API:
+
+- **`useIngredients()`** (`ui/hooks/use-ingredients.ts`):
+  - Lista ingredientes (`GET /ingredients`).
+  - Cria/atualiza/remove ingredientes (`POST`, `PATCH`, `DELETE /ingredients`).
+  - Expõe estados `loading`, `saving`, `error` e ações (`refresh`, `createIngredient`, `updateIngredient`, `deleteIngredient`).
+- **`useRecipes()`** (`ui/hooks/use-recipes.ts`):
+  - Integra com `/recipes` para CRUD de receitas.
+  - Retorna estados/ações equivalentes aos de ingredientes.
+
+Ambos dependem de `useAuth()` para obter o token JWT. Ao integrar novas telas, priorize reutilizar esses hooks.
+
+## 🌐 Execução Local & CORS
+
+- O backend NestJS escuta em `http://localhost:3000` (variável `PORT`) e habilita CORS via `app.enableCors({ origin: FRONTEND_ORIGIN, credentials: true })` em `api/src/main.ts`.
+- Configure `FRONTEND_ORIGIN=http://localhost:3001` no backend para permitir chamadas do Next.js.
+- O frontend roda em `http://localhost:3001` (`pnpm run dev -p 3001`) para evitar conflito de porta com o backend. Garanta que `NEXT_PUBLIC_API_URL` aponte para `http://localhost:3000`.
 
 ## 📊 Funcionalidades Principais
 
