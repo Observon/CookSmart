@@ -1,56 +1,98 @@
 "use client"
 
-import type React from "react"
+import { useEffect, useState } from "react"
 
-import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
+import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Card } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import type { CreateIngredientPayload, Ingredient, UpdateIngredientPayload } from "@/lib/types"
 import { ArrowLeft } from "lucide-react"
-import type { Ingredient } from "@/app/page"
+import { toast } from "sonner"
 
 interface IngredientFormScreenProps {
-  onSave: (ingredient: Ingredient) => void
+  onSave: (ingredient: CreateIngredientPayload | UpdateIngredientPayload) => Promise<void>
   onCancel: () => void
   editingIngredient?: Ingredient | null
+  loading?: boolean
 }
 
 const UNITS = ["kg", "g", "L", "ml", "unidade", "dúzia", "xícara", "colher (sopa)", "colher (chá)"]
 
-export function IngredientFormScreen({ onSave, onCancel, editingIngredient }: IngredientFormScreenProps) {
+export function IngredientFormScreen({ onSave, onCancel, editingIngredient, loading }: IngredientFormScreenProps) {
   const [name, setName] = useState("")
   const [unit, setUnit] = useState("")
   const [totalCost, setTotalCost] = useState("")
   const [totalAmount, setTotalAmount] = useState("")
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     if (editingIngredient) {
       setName(editingIngredient.name)
-      setUnit(editingIngredient.unit)
+      setUnit(editingIngredient.unitOfMeasure)
       setTotalCost(editingIngredient.totalCost.toString())
       setTotalAmount(editingIngredient.totalAmount.toString())
+    } else {
+      setName("")
+      setUnit("")
+      setTotalCost("")
+      setTotalAmount("")
     }
   }, [editingIngredient])
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    const cost = Number.parseFloat(totalCost)
-    const amount = Number.parseFloat(totalAmount)
-    const ingredient: Ingredient = {
-      id: editingIngredient?.id || Date.now().toString(),
-      name,
-      unit,
-      totalCost: cost,
-      totalAmount: amount,
-      costPerUnit: cost / amount,
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    setError(null)
+
+    const parsedCost = Number.parseFloat(totalCost)
+    const parsedAmount = Number.parseFloat(totalAmount)
+
+    if (!Number.isFinite(parsedCost) || parsedCost <= 0 || !Number.isFinite(parsedAmount) || parsedAmount <= 0) {
+      setError("Informe valores válidos para custo e quantidade")
+      return
     }
-    onSave(ingredient)
+
+    const payload: CreateIngredientPayload | UpdateIngredientPayload = editingIngredient
+      ? {
+          id: editingIngredient.id,
+          name,
+          unitOfMeasure: unit,
+          totalCost: parsedCost,
+          totalAmount: parsedAmount,
+          category: editingIngredient.category ?? undefined,
+        }
+      : {
+          name,
+          unitOfMeasure: unit,
+          totalCost: parsedCost,
+          totalAmount: parsedAmount,
+        }
+
+    setSubmitting(true)
+    try {
+      await onSave(payload)
+      toast.success(editingIngredient ? "Ingrediente atualizado" : "Ingrediente criado")
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Não foi possível salvar o ingrediente"
+      setError(message)
+      toast.error(message)
+    } finally {
+      setSubmitting(false)
+    }
   }
 
-  const costPerUnit =
-    totalCost && totalAmount ? (Number.parseFloat(totalCost) / Number.parseFloat(totalAmount)).toFixed(2) : "0.00"
+  const costPerUnit = (() => {
+    const parsedCost = Number.parseFloat(totalCost)
+    const parsedAmount = Number.parseFloat(totalAmount)
+
+    if (!Number.isFinite(parsedCost) || !Number.isFinite(parsedAmount) || parsedAmount <= 0) {
+      return "0.00"
+    }
+
+    return (parsedCost / parsedAmount).toFixed(2)
+  })()
 
   return (
     <div className="min-h-screen bg-background">
@@ -80,7 +122,7 @@ export function IngredientFormScreen({ onSave, onCancel, editingIngredient }: In
               id="ingredient-name"
               placeholder="Ex: Leite Condensado, Açúcar..."
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={(event) => setName(event.target.value)}
               className="h-12 text-base bg-background"
               required
             />
@@ -95,9 +137,9 @@ export function IngredientFormScreen({ onSave, onCancel, editingIngredient }: In
                 <SelectValue placeholder="Selecione a unidade" />
               </SelectTrigger>
               <SelectContent>
-                {UNITS.map((u) => (
-                  <SelectItem key={u} value={u}>
-                    {u}
+                {UNITS.map((item) => (
+                  <SelectItem key={item} value={item}>
+                    {item}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -116,7 +158,7 @@ export function IngredientFormScreen({ onSave, onCancel, editingIngredient }: In
                 min="0"
                 placeholder="0.00"
                 value={totalCost}
-                onChange={(e) => setTotalCost(e.target.value)}
+                onChange={(event) => setTotalCost(event.target.value)}
                 className="h-12 text-base bg-background"
                 required
               />
@@ -133,7 +175,7 @@ export function IngredientFormScreen({ onSave, onCancel, editingIngredient }: In
                 min="0"
                 placeholder="0"
                 value={totalAmount}
-                onChange={(e) => setTotalAmount(e.target.value)}
+                onChange={(event) => setTotalAmount(event.target.value)}
                 className="h-12 text-base bg-background"
                 required
               />
@@ -151,6 +193,8 @@ export function IngredientFormScreen({ onSave, onCancel, editingIngredient }: In
           </Card>
         )}
 
+        {error && <p className="text-sm text-destructive text-center">{error}</p>}
+
         {/* Example */}
         <Card className="p-4 bg-muted/50">
           <p className="text-xs text-muted-foreground mb-2 font-semibold">💡 Exemplo:</p>
@@ -166,8 +210,13 @@ export function IngredientFormScreen({ onSave, onCancel, editingIngredient }: In
         <Button
           type="submit"
           className="w-full h-12 text-base font-semibold bg-primary hover:bg-primary/90 text-primary-foreground"
+          disabled={submitting || loading}
         >
-          {editingIngredient ? "Atualizar Ingrediente" : "Salvar Ingrediente"}
+          {submitting || loading
+            ? "Salvando..."
+            : editingIngredient
+              ? "Atualizar Ingrediente"
+              : "Salvar Ingrediente"}
         </Button>
       </form>
     </div>

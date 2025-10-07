@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { LoginScreen } from "@/components/login-screen"
 import { RecipeListScreen } from "@/components/recipe-list-screen"
 import { RecipeFormScreen } from "@/components/recipe-form-screen"
@@ -8,115 +8,154 @@ import { IngredientFormScreen } from "@/components/ingredient-form-screen"
 import { RecipeDetailScreen } from "@/components/recipe-detail-screen"
 import { IngredientsListScreen } from "@/components/ingredients-list-screen"
 import { AiScannerScreen } from "@/components/ai-scanner-screen"
-
-export type Ingredient = {
-  id: string
-  name: string
-  unit: string
-  totalCost: number
-  totalAmount: number
-  costPerUnit: number
-}
-
-export type RecipeIngredient = {
-  ingredientId: string
-  ingredientName: string
-  amountUsed: number
-  unit: string
-  cost: number
-}
-
-export type Recipe = {
-  id: string
-  name: string
-  servings: number
-  ingredients: RecipeIngredient[]
-  totalCost: number
-  costPerServing: number
-}
+import { Button } from "@/components/ui/button"
+import { useAuth } from "@/context/auth-context"
+import { useIngredients } from "@/hooks/use-ingredients"
+import { useRecipes } from "@/hooks/use-recipes"
+import type { CreateIngredientPayload, CreateRecipePayload, Recipe, UpdateIngredientPayload, UpdateRecipePayload } from "@/lib/types"
 
 export default function Home() {
-  const [isLoggedIn, setIsLoggedIn] = useState(false)
+  const { token, user, logout, loading: authLoading, initializing } = useAuth()
+  const {
+    ingredients,
+    loading: ingredientsLoading,
+    saving: ingredientsSaving,
+    createIngredient,
+    updateIngredient,
+    deleteIngredient,
+  } = useIngredients()
+  const {
+    recipes,
+    loading: recipesLoading,
+    saving: recipesSaving,
+    createRecipe,
+    updateRecipe,
+    deleteRecipe,
+  } = useRecipes()
   const [currentScreen, setCurrentScreen] = useState<
     "list" | "add-recipe" | "add-ingredient" | "recipe-detail" | "ingredients-list" | "edit-ingredient" | "ai-scanner"
   >("list")
-  const [recipes, setRecipes] = useState<Recipe[]>([])
-  const [ingredients, setIngredients] = useState<Ingredient[]>([])
-  const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null)
-  const [editingRecipe, setEditingRecipe] = useState<Recipe | null>(null)
-  const [editingIngredient, setEditingIngredient] = useState<Ingredient | null>(null)
+  const [selectedRecipeId, setSelectedRecipeId] = useState<number | null>(null)
+  const [editingRecipeId, setEditingRecipeId] = useState<number | null>(null)
+  const [editingIngredientId, setEditingIngredientId] = useState<number | null>(null)
 
-  const handleLogin = () => {
-    setIsLoggedIn(true)
+  const selectedRecipe = useMemo<Recipe | null>(
+    () => (selectedRecipeId != null ? recipes.find((recipe) => recipe.id === selectedRecipeId) ?? null : null),
+    [recipes, selectedRecipeId],
+  )
+
+  const editingRecipe = useMemo<Recipe | null>(
+    () => (editingRecipeId != null ? recipes.find((recipe) => recipe.id === editingRecipeId) ?? null : null),
+    [recipes, editingRecipeId],
+  )
+
+  const editingIngredient = useMemo(
+    () => (editingIngredientId != null ? ingredients.find((ingredient) => ingredient.id === editingIngredientId) ?? null : null),
+    [ingredients, editingIngredientId],
+  )
+
+  useEffect(() => {
+    if (!token) {
+      setCurrentScreen("list")
+      setSelectedRecipeId(null)
+      setEditingRecipeId(null)
+      setEditingIngredientId(null)
+    }
+  }, [token])
+
+  const handleSaveIngredient = async (payload: CreateIngredientPayload | UpdateIngredientPayload) => {
+    if ("id" in payload) {
+      const { id, ...rest } = payload
+      await updateIngredient(id, rest)
+    } else {
+      await createIngredient(payload)
+    }
+
+    setCurrentScreen(editingIngredientId != null ? "ingredients-list" : "add-recipe")
+    setEditingIngredientId(null)
   }
 
-  const handleAddRecipe = (recipe: Recipe) => {
-    if (editingRecipe) {
-      setRecipes(recipes.map((r) => (r.id === recipe.id ? recipe : r)))
-      setEditingRecipe(null)
+  const handleSaveRecipe = async (
+    payload: CreateRecipePayload | (UpdateRecipePayload & { id: number }),
+  ) => {
+    if ("id" in payload) {
+      const { id, ...rest } = payload
+      await updateRecipe(id, rest)
+      setEditingRecipeId(null)
+      setSelectedRecipeId(id)
     } else {
-      setRecipes([...recipes, recipe])
+      const recipe = await createRecipe(payload)
+      if (recipe) {
+        setSelectedRecipeId(recipe.id)
+      }
     }
+
     setCurrentScreen("list")
   }
 
-  const handleAddIngredient = (ingredient: Ingredient) => {
-    const existing = ingredients.find((i) => i.id === ingredient.id)
-    if (existing) {
-      setIngredients(ingredients.map((i) => (i.id === ingredient.id ? ingredient : i)))
-    } else {
-      setIngredients([...ingredients, ingredient])
-    }
-    setCurrentScreen(editingIngredient ? "ingredients-list" : "add-recipe")
-    setEditingIngredient(null)
-  }
-
   const handleEditRecipe = (recipe: Recipe) => {
-    setEditingRecipe(recipe)
+    setEditingRecipeId(recipe.id)
     setCurrentScreen("add-recipe")
   }
 
-  const handleDeleteRecipe = (recipeId: string) => {
-    setRecipes(recipes.filter((r) => r.id !== recipeId))
+  const handleDeleteRecipe = (recipeId: number) => {
+    void deleteRecipe(recipeId)
+    if (selectedRecipeId === recipeId) {
+      setSelectedRecipeId(null)
+    }
+    if (editingRecipeId === recipeId) {
+      setEditingRecipeId(null)
+    }
     setCurrentScreen("list")
   }
 
   const handleViewRecipe = (recipe: Recipe) => {
-    setSelectedRecipe(recipe)
+    setSelectedRecipeId(recipe.id)
     setCurrentScreen("recipe-detail")
   }
 
   const handleUpdateIngredientPrices = (
-    updates: Array<{ ingredientId: string; newCost: number; newAmount: number }>,
+    updates: Array<{ ingredientId: number; newCost: number; newAmount: number }>,
   ) => {
-    setIngredients(
-      ingredients.map((ingredient) => {
-        const update = updates.find((u) => u.ingredientId === ingredient.id)
-        if (update) {
-          return {
-            ...ingredient,
-            totalCost: update.newCost,
-            totalAmount: update.newAmount,
-            costPerUnit: update.newCost / update.newAmount,
-          }
-        }
-        return ingredient
-      }),
+    void Promise.all(
+      updates.map((update) =>
+        updateIngredient(update.ingredientId, {
+          totalCost: update.newCost,
+          totalAmount: update.newAmount,
+        }),
+      ),
     )
     setCurrentScreen("ingredients-list")
   }
 
-  if (!isLoggedIn) {
-    return <LoginScreen onLogin={handleLogin} />
+  if (initializing) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <span className="text-sm text-muted-foreground">Carregando sessão...</span>
+      </div>
+    )
+  }
+
+  if (!token) {
+    return <LoginScreen />
   }
 
   return (
     <div className="min-h-screen bg-background">
+      <header className="flex items-center justify-between px-6 py-4 border-b border-border">
+        <div>
+          <p className="text-sm text-muted-foreground">Bem-vindo{user ? `, ${user.name}` : ""}</p>
+          {user?.email && <p className="text-xs text-muted-foreground/80">{user.email}</p>}
+        </div>
+        <Button variant="outline" size="sm" onClick={logout} disabled={authLoading}>
+          Sair
+        </Button>
+      </header>
       {currentScreen === "list" && (
         <RecipeListScreen
           recipes={recipes}
           onAddRecipe={() => {
-            setEditingRecipe(null)
+            setEditingRecipeId(null)
             setCurrentScreen("add-recipe")
           }}
           onViewRecipe={handleViewRecipe}
@@ -127,18 +166,26 @@ export default function Home() {
       {currentScreen === "add-recipe" && (
         <RecipeFormScreen
           ingredients={ingredients}
-          onSave={handleAddRecipe}
-          onCancel={() => setCurrentScreen("list")}
+          onSave={handleSaveRecipe}
+          onCancel={() => {
+            setEditingRecipeId(null)
+            setCurrentScreen("list")
+          }}
           onAddIngredient={() => setCurrentScreen("add-ingredient")}
           editingRecipe={editingRecipe}
+          loading={recipesLoading || recipesSaving}
         />
       )}
 
       {currentScreen === "add-ingredient" && (
         <IngredientFormScreen
-          onSave={handleAddIngredient}
-          onCancel={() => setCurrentScreen(editingIngredient ? "ingredients-list" : "add-recipe")}
+          onSave={handleSaveIngredient}
+          onCancel={() => {
+            setEditingIngredientId(null)
+            setCurrentScreen(editingIngredientId != null ? "ingredients-list" : "add-recipe")
+          }}
           editingIngredient={editingIngredient}
+          loading={ingredientsSaving}
         />
       )}
 
@@ -156,11 +203,11 @@ export default function Home() {
           ingredients={ingredients}
           onBack={() => setCurrentScreen("list")}
           onEditIngredient={(ingredient) => {
-            setEditingIngredient(ingredient)
+            setEditingIngredientId(ingredient.id)
             setCurrentScreen("edit-ingredient")
           }}
           onAddIngredient={() => {
-            setEditingIngredient(null)
+            setEditingIngredientId(null)
             setCurrentScreen("add-ingredient")
           }}
           onScanInvoice={() => setCurrentScreen("ai-scanner")}
@@ -169,12 +216,13 @@ export default function Home() {
 
       {currentScreen === "edit-ingredient" && editingIngredient && (
         <IngredientFormScreen
-          onSave={handleAddIngredient}
+          onSave={handleSaveIngredient}
           onCancel={() => {
-            setEditingIngredient(null)
+            setEditingIngredientId(null)
             setCurrentScreen("ingredients-list")
           }}
           editingIngredient={editingIngredient}
+          loading={ingredientsSaving}
         />
       )}
 

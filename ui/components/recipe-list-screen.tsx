@@ -3,7 +3,7 @@
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { ChefHat, Plus, DollarSign, Package } from "lucide-react"
-import type { Recipe } from "@/app/page"
+import type { Recipe } from "@/lib/types"
 
 interface RecipeListScreenProps {
   recipes: Recipe[]
@@ -75,11 +75,17 @@ export function RecipeListScreen({ recipes, onAddRecipe, onViewRecipe, onManageI
                     <p className="text-sm text-muted-foreground mb-3">
                       {recipe.servings} {recipe.servings === 1 ? "porção" : "porções"}
                     </p>
-                    <div className="flex items-center gap-4">
-                      <div className="flex items-center gap-1">
-                        <DollarSign className="w-4 h-4 text-muted-foreground" />
-                        <span className="text-sm text-muted-foreground">Custo total:</span>
-                        <span className="text-sm font-semibold text-foreground">R$ {recipe.totalCost.toFixed(2)}</span>
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <DollarSign className="w-4 h-4" />
+                        <span>Custo total:</span>
+                        <span className="font-semibold text-foreground">R$ {recipe.totalCost.toFixed(2)}</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <span>Preço sugerido:</span>
+                        <span className="font-semibold text-primary">
+                          R$ {(recipe.suggestedPrice ?? recipe.costPerServing * 3).toFixed(2)}
+                        </span>
                       </div>
                     </div>
                   </div>

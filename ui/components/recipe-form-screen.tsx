@@ -1,21 +1,39 @@
 "use client"
 
-import type React from "react"
+import { useMemo, useState } from "react"
 
-import { useState } from "react"
 import { Button } from "@/components/ui/button"
+import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Card } from "@/components/ui/card"
-import { ArrowLeft, Plus, Trash2, DollarSign } from "lucide-react"
-import type { Ingredient, Recipe, RecipeIngredient } from "@/app/page"
+import type { CreateRecipePayload, Ingredient, Recipe, UpdateRecipePayload } from "@/lib/types"
+import { ArrowLeft, DollarSign, Plus, Trash2 } from "lucide-react"
 
 interface RecipeFormScreenProps {
   ingredients: Ingredient[]
-  onSave: (recipe: Recipe) => void
+  onSave: (payload: CreateRecipePayload | (UpdateRecipePayload & { id: number })) => Promise<void>
   onCancel: () => void
   onAddIngredient: () => void
   editingRecipe?: Recipe | null
+  loading?: boolean
+}
+
+interface SelectedIngredient {
+  ingredientId: number
+  ingredient: Ingredient
+  quantity: number
+}
+
+function buildInitialSelectedIngredients(recipe?: Recipe | null): SelectedIngredient[] {
+  if (!recipe) {
+    return []
+  }
+
+  return recipe.ingredients.map((detail) => ({
+    ingredientId: detail.ingredientId,
+    ingredient: detail.ingredient,
+    quantity: detail.quantity,
+  }))
 }
 
 export function RecipeFormScreen({
@@ -24,66 +42,119 @@ export function RecipeFormScreen({
   onCancel,
   onAddIngredient,
   editingRecipe,
+  loading,
 }: RecipeFormScreenProps) {
-  const [name, setName] = useState(editingRecipe?.name || "")
-  const [servings, setServings] = useState(editingRecipe?.servings.toString() || "")
-  const [selectedIngredients, setSelectedIngredients] = useState<RecipeIngredient[]>(editingRecipe?.ingredients || [])
+  const [name, setName] = useState(editingRecipe?.name ?? "")
+  const [description, setDescription] = useState(editingRecipe?.description ?? "")
+  const [servings, setServings] = useState(editingRecipe ? String(editingRecipe.servings) : "")
+  const [suggestedPrice, setSuggestedPrice] = useState(
+    editingRecipe?.suggestedPrice ? String(editingRecipe.suggestedPrice) : "",
+  )
+  const [selectedIngredients, setSelectedIngredients] = useState<SelectedIngredient[]>(
+    buildInitialSelectedIngredients(editingRecipe),
+  )
   const [showIngredientSelector, setShowIngredientSelector] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
 
   const handleAddIngredient = (ingredient: Ingredient) => {
-    const existing = selectedIngredients.find((i) => i.ingredientId === ingredient.id)
-    if (!existing) {
-      setSelectedIngredients([
-        ...selectedIngredients,
-        {
-          ingredientId: ingredient.id,
-          ingredientName: ingredient.name,
-          amountUsed: 0,
-          unit: ingredient.unit,
-          cost: 0,
-        },
-      ])
+    const exists = selectedIngredients.some((item) => item.ingredientId === ingredient.id)
+    if (exists) {
+      setShowIngredientSelector(false)
+      return
     }
+
+    setSelectedIngredients([
+      ...selectedIngredients,
+      {
+        ingredientId: ingredient.id,
+        ingredient,
+        quantity: 0,
+      },
+    ])
+
     setShowIngredientSelector(false)
   }
 
-  const handleUpdateIngredientAmount = (ingredientId: string, amount: number) => {
-    setSelectedIngredients(
-      selectedIngredients.map((ing) => {
-        if (ing.ingredientId === ingredientId) {
-          const ingredient = ingredients.find((i) => i.id === ingredientId)
-          const cost = ingredient ? (amount / ingredient.totalAmount) * ingredient.totalCost : 0
-          return { ...ing, amountUsed: amount, cost }
-        }
-        return ing
-      }),
+  const handleUpdateIngredientQuantity = (ingredientId: number, quantity: number) => {
+    setSelectedIngredients((prev) =>
+      prev.map((item) => (item.ingredientId === ingredientId ? { ...item, quantity } : item)),
     )
   }
 
-  const handleRemoveIngredient = (ingredientId: string) => {
-    setSelectedIngredients(selectedIngredients.filter((i) => i.ingredientId !== ingredientId))
+  const handleRemoveIngredient = (ingredientId: number) => {
+    setSelectedIngredients((prev) => prev.filter((item) => item.ingredientId !== ingredientId))
   }
 
-  const calculateTotalCost = () => {
-    return selectedIngredients.reduce((sum, ing) => sum + ing.cost, 0)
-  }
+  const totalCost = useMemo(() => {
+    return selectedIngredients.reduce((acc, item) => acc + item.quantity * item.ingredient.costPerUnit, 0)
+  }, [selectedIngredients])
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    const totalCost = calculateTotalCost()
-    const recipe: Recipe = {
-      id: editingRecipe?.id || Date.now().toString(),
-      name,
-      servings: Number.parseInt(servings),
-      ingredients: selectedIngredients,
-      totalCost,
-      costPerServing: totalCost / Number.parseInt(servings),
+  const parsedServings = Number.parseInt(servings)
+  const costPerServing = useMemo(() => {
+    if (!Number.isFinite(parsedServings) || parsedServings <= 0) {
+      return 0
     }
-    onSave(recipe)
+
+    return totalCost / parsedServings
+  }, [parsedServings, totalCost])
+
+  const effectiveSuggestedPrice = useMemo(() => {
+    const parsed = Number.parseFloat(suggestedPrice)
+    if (Number.isFinite(parsed) && parsed > 0) {
+      return parsed
+    }
+    return totalCost * 1.3
+  }, [suggestedPrice, totalCost])
+
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+
+    if (!name.trim()) {
+      return
+    }
+
+    if (!Number.isFinite(parsedServings) || parsedServings <= 0) {
+      return
+    }
+
+    const cleanedIngredients = selectedIngredients
+      .filter((item) => item.quantity > 0)
+      .map((item) => ({
+        ingredientId: item.ingredientId,
+        quantity: item.quantity,
+      }))
+
+    if (cleanedIngredients.length === 0) {
+      setShowIngredientSelector(true)
+      return
+    }
+
+    const payloadBase: Omit<CreateRecipePayload, "suggestedPrice"> & {
+      suggestedPrice: number
+    } = {
+      name: name.trim(),
+      servings: parsedServings,
+      description: description.trim() ? description.trim() : undefined,
+      ingredients: cleanedIngredients,
+      suggestedPrice: effectiveSuggestedPrice,
+    }
+
+    setSubmitting(true)
+    try {
+      if (editingRecipe) {
+        await onSave({
+          id: editingRecipe.id,
+          ...payloadBase,
+        })
+      } else {
+        await onSave(payloadBase)
+      }
+    } finally {
+      setSubmitting(false)
+    }
   }
 
-  const totalCost = calculateTotalCost()
-  const costPerServing = servings ? totalCost / Number.parseInt(servings) : 0
+  const formDisabled = submitting || loading
 
   return (
     <div className="min-h-screen bg-background pb-24">
@@ -121,19 +192,49 @@ export function RecipeFormScreen({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="servings" className="text-foreground">
-              Quantas Porções Rende?
+            <Label htmlFor="description" className="text-foreground">
+              Descrição (opcional)
             </Label>
             <Input
-              id="servings"
-              type="number"
-              min="1"
-              placeholder="Ex: 20"
-              value={servings}
-              onChange={(e) => setServings(e.target.value)}
+              id="description"
+              placeholder="Notas sobre a receita"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
               className="h-12 text-base bg-background"
-              required
             />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="servings" className="text-foreground">
+                Quantas Porções Rende?
+              </Label>
+              <Input
+                id="servings"
+                type="number"
+                min="1"
+                placeholder="Ex: 20"
+                value={servings}
+                onChange={(e) => setServings(e.target.value)}
+                className="h-12 text-base bg-background"
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="suggestedPrice" className="text-foreground">
+                Preço sugerido (opcional)
+              </Label>
+              <Input
+                id="suggestedPrice"
+                type="number"
+                step="0.01"
+                min="0"
+                placeholder={`Ex: ${(costPerServing * 3).toFixed(2)}`}
+                value={suggestedPrice}
+                onChange={(e) => setSuggestedPrice(e.target.value)}
+                className="h-12 text-base bg-background"
+              />
+            </div>
           </div>
         </Card>
 
@@ -175,46 +276,58 @@ export function RecipeFormScreen({
                 </Card>
               ) : (
                 <div className="space-y-3">
-                  {selectedIngredients.map((ing) => (
-                    <Card key={ing.ingredientId} className="p-4 bg-card">
-                      <div className="flex items-start justify-between mb-3">
-                        <div className="flex-1">
-                          <h4 className="font-semibold text-foreground">{ing.ingredientName}</h4>
-                          <p className="text-xs text-muted-foreground">Custo: R$ {ing.cost.toFixed(2)}</p>
+                  {selectedIngredients.map((item) => {
+                    const itemCost = item.quantity * item.ingredient.costPerUnit
+
+                    return (
+                      <Card key={item.ingredientId} className="p-4 bg-card">
+                        <div className="flex items-start justify-between mb-3">
+                          <div className="flex-1">
+                            <h4 className="font-semibold text-foreground">{item.ingredient.name}</h4>
+                            <p className="text-xs text-muted-foreground">Custo: R$ {itemCost.toFixed(2)}</p>
+                          </div>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleRemoveIngredient(item.ingredientId)}
+                            className="text-destructive hover:bg-destructive/10"
+                            disabled={formDisabled}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
                         </div>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleRemoveIngredient(ing.ingredientId)}
-                          className="text-destructive hover:bg-destructive/10"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Input
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          placeholder="Quantidade"
-                          value={ing.amountUsed || ""}
-                          onChange={(e) =>
-                            handleUpdateIngredientAmount(ing.ingredientId, Number.parseFloat(e.target.value) || 0)
-                          }
-                          className="h-10 bg-background"
-                          required
-                        />
-                        <span className="text-sm text-muted-foreground whitespace-nowrap">{ing.unit}</span>
-                      </div>
-                    </Card>
-                  ))}
+                        <div className="flex items-center gap-2">
+                          <Input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            placeholder="Quantidade"
+                            value={item.quantity ? String(item.quantity) : ""}
+                            onChange={(event) =>
+                              handleUpdateIngredientQuantity(
+                                item.ingredientId,
+                                Number.parseFloat(event.target.value) || 0,
+                              )
+                            }
+                            className="h-10 bg-background"
+                            required
+                            disabled={formDisabled}
+                          />
+                          <span className="text-sm text-muted-foreground whitespace-nowrap">
+                            {item.ingredient.unitOfMeasure}
+                          </span>
+                        </div>
+                      </Card>
+                    )
+                  })}
 
                   <Button
                     type="button"
                     variant="outline"
                     className="w-full border-dashed border-primary text-primary hover:bg-primary/10 bg-transparent"
                     onClick={() => setShowIngredientSelector(!showIngredientSelector)}
+                    disabled={formDisabled}
                   >
                     <Plus className="w-4 h-4 mr-2" />
                     Adicionar Ingrediente
@@ -237,7 +350,7 @@ export function RecipeFormScreen({
                       >
                         <div className="font-medium text-foreground">{ing.name}</div>
                         <div className="text-xs text-muted-foreground">
-                          R$ {ing.costPerUnit.toFixed(2)} por {ing.unit}
+                          R$ {ing.costPerUnit.toFixed(2)} por {ing.unitOfMeasure}
                         </div>
                       </button>
                     ))}
@@ -273,9 +386,9 @@ export function RecipeFormScreen({
         <Button
           type="submit"
           className="w-full h-12 text-base font-semibold bg-primary hover:bg-primary/90 text-primary-foreground"
-          disabled={!name || !servings || selectedIngredients.length === 0}
+          disabled={formDisabled || !name || !servings || selectedIngredients.length === 0}
         >
-          {editingRecipe ? "Salvar Alterações" : "Salvar Receita"}
+          {submitting || loading ? "Salvando..." : editingRecipe ? "Salvar Alterações" : "Salvar Receita"}
         </Button>
       </form>
     </div>

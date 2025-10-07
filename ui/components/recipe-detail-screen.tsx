@@ -3,7 +3,7 @@
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { ArrowLeft, Edit, Trash2, DollarSign, TrendingUp } from "lucide-react"
-import type { Recipe } from "@/app/page"
+import type { Recipe } from "@/lib/types"
 
 interface RecipeDetailScreenProps {
   recipe: Recipe
@@ -13,7 +13,7 @@ interface RecipeDetailScreenProps {
 }
 
 export function RecipeDetailScreen({ recipe, onBack, onEdit, onDelete }: RecipeDetailScreenProps) {
-  const suggestedPrice = recipe.costPerServing * 3
+  const suggestedPrice = recipe.suggestedPrice || recipe.costPerServing * 3
 
   return (
     <div className="min-h-screen bg-background pb-24">
@@ -95,21 +95,29 @@ export function RecipeDetailScreen({ recipe, onBack, onEdit, onDelete }: RecipeD
         <div className="space-y-3">
           <h2 className="text-lg font-semibold text-foreground">Ingredientes</h2>
           <div className="space-y-2">
-            {recipe.ingredients.map((ing) => (
-              <Card key={ing.ingredientId} className="p-4 bg-card">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h4 className="font-medium text-foreground">{ing.ingredientName}</h4>
-                    <p className="text-sm text-muted-foreground">
-                      {ing.amountUsed} {ing.unit}
-                    </p>
+            {recipe.ingredients.map((detail) => {
+              const ingredientName = detail.ingredient.name
+              const quantity = detail.quantity
+              const unit = detail.ingredient.unitOfMeasure
+              const itemCost = quantity * detail.ingredient.costPerUnit
+
+              return (
+                <Card key={detail.id} className="p-4 bg-card">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="font-medium text-foreground">{ingredientName}</h4>
+                      <p className="text-sm text-muted-foreground">
+                        {quantity} {unit}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm font-semibold text-foreground">R$ {itemCost.toFixed(2)}</p>
+                      <p className="text-xs text-muted-foreground">(R$ {detail.ingredient.costPerUnit.toFixed(2)} / {unit})</p>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <p className="text-sm font-semibold text-foreground">R$ {ing.cost.toFixed(2)}</p>
-                  </div>
-                </div>
-              </Card>
-            ))}
+                </Card>
+              )
+            })}
           </div>
         </div>
 

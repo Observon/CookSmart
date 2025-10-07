@@ -3,7 +3,7 @@
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { ArrowLeft, Plus, Camera, DollarSign, Package } from "lucide-react"
-import type { Ingredient } from "@/app/page"
+import type { Ingredient } from "@/lib/types"
 
 interface IngredientsListScreenProps {
   ingredients: Ingredient[]
@@ -92,7 +92,7 @@ export function IngredientsListScreen({
                   <div className="flex-1">
                     <h3 className="text-lg font-semibold text-foreground mb-1">{ingredient.name}</h3>
                     <p className="text-sm text-muted-foreground mb-3">
-                      {ingredient.totalAmount} {ingredient.unit}
+                      {ingredient.totalAmount} {ingredient.unitOfMeasure}
                     </p>
                     <div className="flex items-center gap-1">
                       <DollarSign className="w-4 h-4 text-muted-foreground" />
@@ -103,7 +103,7 @@ export function IngredientsListScreen({
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className="text-xs text-muted-foreground mb-1">Por {ingredient.unit}</div>
+                    <div className="text-xs text-muted-foreground mb-1">Por {ingredient.unitOfMeasure}</div>
                     <div className="text-2xl font-bold text-primary">R$ {ingredient.costPerUnit.toFixed(2)}</div>
                   </div>
                 </div>

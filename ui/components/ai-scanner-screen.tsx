@@ -4,12 +4,12 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { ArrowLeft, Camera, Upload, Sparkles, Check, X } from "lucide-react"
-import type { Ingredient } from "@/app/page"
+import type { Ingredient } from "@/lib/types"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 
 interface InvoiceItem {
-  ingredientId: string
+  ingredientId: number
   ingredientName: string
   detectedName: string
   newCost: number
@@ -22,7 +22,7 @@ interface InvoiceItem {
 interface AiScannerScreenProps {
   ingredients: Ingredient[]
   onBack: () => void
-  onUpdatePrices: (updates: Array<{ ingredientId: string; newCost: number; newAmount: number }>) => void
+  onUpdatePrices: (updates: Array<{ ingredientId: number; newCost: number; newAmount: number }>) => void
 }
 
 export function AiScannerScreen({ ingredients, onBack, onUpdatePrices }: AiScannerScreenProps) {
@@ -39,22 +39,22 @@ export function AiScannerScreen({ ingredients, onBack, onUpdatePrices }: AiScann
       // Mock detected items from invoice
       const mockDetectedItems: InvoiceItem[] = [
         {
-          ingredientId: ingredients[0]?.id || "1",
-          ingredientName: ingredients[0]?.name || "Açúcar",
+          ingredientId: ingredients[0]?.id ?? 1,
+          ingredientName: ingredients[0]?.name ?? "Açúcar",
           detectedName: "AÇUCAR CRISTAL 1KG",
           newCost: 4.99,
           newAmount: 1000,
-          unit: "g",
+          unit: ingredients[0]?.unitOfMeasure ?? "g",
           confidence: 0.95,
           selected: true,
         },
         {
-          ingredientId: ingredients[1]?.id || "2",
-          ingredientName: ingredients[1]?.name || "Leite",
+          ingredientId: ingredients[1]?.id ?? 2,
+          ingredientName: ingredients[1]?.name ?? "Leite",
           detectedName: "LEITE INTEGRAL 1L",
           newCost: 5.49,
           newAmount: 1,
-          unit: "L",
+          unit: ingredients[1]?.unitOfMeasure ?? "L",
           confidence: 0.92,
           selected: true,
         },
