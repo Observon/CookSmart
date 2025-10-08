@@ -84,8 +84,11 @@ export function RecipeListScreen({ recipes, onAddRecipe, onViewRecipe, onManageI
                       <div className="flex items-center gap-2 text-xs text-muted-foreground">
                         <span>Preço sugerido:</span>
                         <span className="font-semibold text-primary">
-                          R$ {(recipe.suggestedPrice ?? recipe.costPerServing * 3).toFixed(2)}
+                          R$ {recipe.suggestedPrice.toFixed(2)}
                         </span>
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        Margem: {recipe.profitMargin.toFixed(2)}%
                       </div>
                     </div>
                   </div>

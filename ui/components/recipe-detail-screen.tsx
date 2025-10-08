@@ -18,16 +18,17 @@ export function RecipeDetailScreen({
   onEdit,
   onDelete,
 }: RecipeDetailScreenProps) {
-  // Prefer the stored suggestedPrice if available; fallback to 3x costPerServing
+  const effectiveMargin =
+    recipe.profitMargin !== undefined && recipe.profitMargin >= 0
+      ? recipe.profitMargin
+      : 200;
+
   const suggestedPrice =
     recipe.suggestedPrice && recipe.suggestedPrice > 0
       ? recipe.suggestedPrice
-      : recipe.costPerServing * 3;
-
-  const profitPercent =
-    recipe.costPerServing > 0
-      ? Math.round((suggestedPrice / recipe.costPerServing - 1) * 100)
-      : 200;
+      : recipe.costPerServing > 0
+      ? recipe.costPerServing * (1 + effectiveMargin / 100)
+      : 0;
 
   return (
     <div className="min-h-screen bg-background pb-24">
@@ -108,7 +109,7 @@ export function RecipeDetailScreen({
                   R$ {suggestedPrice.toFixed(2)}
                 </span>
                 <span className="text-sm text-muted-foreground">
-                  (lucro de {profitPercent}%)
+                  (lucro de {effectiveMargin.toFixed(2)}%)
                 </span>
               </div>
             </div>

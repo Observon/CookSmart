@@ -61,21 +61,16 @@ export function RecipeFormScreen({
     editingRecipe ? String(editingRecipe.servings) : ""
   );
 
-  // profit margin (%) state replaces the previous absolute suggestedPrice input.
-  // If editing an existing recipe, compute current margin from saved suggestedPrice and costPerServing.
-  const initialProfitMargin = (() => {
-    if (
-      editingRecipe &&
-      editingRecipe.costPerServing > 0 &&
-      editingRecipe.suggestedPrice > 0
-    ) {
-      const pct =
-        (editingRecipe.suggestedPrice / editingRecipe.costPerServing - 1) * 100;
-      return String(Number.isFinite(pct) ? Number(pct.toFixed(2)) : 200);
-    }
-    return "200"; // default 200% (multiplier 3) to match detail view behavior
-  })();
-  const [profitMargin, setProfitMargin] = useState(initialProfitMargin);
+  const [profitMargin, setProfitMargin] = useState(
+    editingRecipe?.profitMargin !== undefined
+      ? String(editingRecipe.profitMargin)
+      : "200",
+  );
+
+  const normalizedProfitMargin = useMemo(() => {
+    const parsed = Number.parseFloat(profitMargin);
+    return Number.isFinite(parsed) && parsed >= 0 ? parsed : 200;
+  }, [profitMargin]);
 
   const [selectedIngredients, setSelectedIngredients] = useState<
     SelectedIngredient[]
@@ -138,15 +133,14 @@ export function RecipeFormScreen({
 
   // compute suggested price from profitMargin (%) and costPerServing
   const effectiveSuggestedPrice = useMemo(() => {
-    const parsed = Number.parseFloat(profitMargin);
-    if (Number.isFinite(parsed) && parsed >= 0 && costPerServing > 0) {
-      return costPerServing * (1 + parsed / 100);
+    if (costPerServing > 0) {
+      return costPerServing * (1 + normalizedProfitMargin / 100);
     }
-    // fallback: default to 3x per-portion if costPerServing is available
-    if (costPerServing > 0) return costPerServing * 3;
-    // last fallback: totalCost * 3 (no servings yet)
-    return totalCost * 3;
-  }, [profitMargin, costPerServing, totalCost]);
+    if (totalCost > 0) {
+      return totalCost * (1 + normalizedProfitMargin / 100);
+    }
+    return 0;
+  }, [normalizedProfitMargin, costPerServing, totalCost]);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -171,15 +165,12 @@ export function RecipeFormScreen({
       return;
     }
 
-    const payloadBase: Omit<CreateRecipePayload, "suggestedPrice"> & {
-      suggestedPrice: number;
-    } = {
+    const payloadBase: CreateRecipePayload = {
       name: name.trim(),
       servings: parsedServings,
       description: description.trim() ? description.trim() : undefined,
       ingredients: cleanedIngredients,
-      // send the computed suggestedPrice based on chosen margin
-      suggestedPrice: effectiveSuggestedPrice,
+      profitMargin: normalizedProfitMargin,
     };
 
     setSubmitting(true);
@@ -455,10 +446,12 @@ export function RecipeFormScreen({
                   </span>
                 </div>
               </div>
-              <p className="text-xs text-muted-foreground text-center pt-2">
-                Sugestão: venda por pelo menos R${" "}
-                {(costPerServing * 3).toFixed(2)} para ter lucro
-              </p>
+              {effectiveSuggestedPrice > 0 && (
+                <p className="text-xs text-muted-foreground text-center pt-2">
+                  Sugestão: venda por pelo menos R$ {effectiveSuggestedPrice.toFixed(2)} para ter lucro
+                  de {normalizedProfitMargin.toFixed(2)}%
+                </p>
+              )}
             </div>
           </Card>
         )}
