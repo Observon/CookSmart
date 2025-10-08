@@ -45,6 +45,11 @@ function buildInitialSelectedIngredients(
   }));
 }
 
+//Função que irá arredondar um número para 2 casas decimais
+function round2(n: number) {
+  return Math.round(n * 100) / 100;
+}
+
 export function RecipeFormScreen({
   ingredients,
   onSave,
@@ -138,14 +143,18 @@ export function RecipeFormScreen({
 
   // compute suggested price from profitMargin (%) and costPerServing
   const effectiveSuggestedPrice = useMemo(() => {
-    const parsed = Number.parseFloat(profitMargin);
-    if (Number.isFinite(parsed) && parsed >= 0 && costPerServing > 0) {
-      return costPerServing * (1 + parsed / 100);
+    const pct = Number.parseFloat(profitMargin);
+    let price: number;
+
+    if (Number.isFinite(pct) && pct >= 0 && costPerServing > 0) {
+      price = costPerServing * (1 + pct / 100);
+    } else if (costPerServing > 0) {
+      price = costPerServing * 3;
+    } else {
+      price = totalCost * 3;
     }
-    // fallback: default to 3x per-portion if costPerServing is available
-    if (costPerServing > 0) return costPerServing * 3;
-    // last fallback: totalCost * 3 (no servings yet)
-    return totalCost * 3;
+
+    return round2(price);
   }, [profitMargin, costPerServing, totalCost]);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -171,7 +180,7 @@ export function RecipeFormScreen({
       return;
     }
 
-    const payloadBase: Omit<CreateRecipePayload, "suggestedPrice"> & {
+    /*     const payloadBase: Omit<CreateRecipePayload, "suggestedPrice"> & {
       suggestedPrice: number;
     } = {
       name: name.trim(),
@@ -180,6 +189,15 @@ export function RecipeFormScreen({
       ingredients: cleanedIngredients,
       // send the computed suggestedPrice based on chosen margin
       suggestedPrice: effectiveSuggestedPrice,
+    }; */
+    const payloadBase: Omit<CreateRecipePayload, "suggestedPrice"> & {
+      suggestedPrice: number;
+    } = {
+      name: name.trim(),
+      servings: parsedServings,
+      description: description.trim() ? description.trim() : undefined,
+      ingredients: cleanedIngredients,
+      suggestedPrice: effectiveSuggestedPrice, // já vem arredondado
     };
 
     setSubmitting(true);
