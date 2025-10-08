@@ -54,6 +54,7 @@ model Recipe {
   totalCost     Decimal             @map("total_cost") @db.Decimal(10, 2)
   costPerServing Decimal            @map("cost_per_serving") @db.Decimal(10, 2) @default(0)
   suggestedPrice Decimal            @map("suggested_price") @db.Decimal(10, 2)
+  profitMargin  Decimal             @map("profit_margin") @db.Decimal(5, 2) @default(200)
   creationDate  DateTime            @default(now()) @map("creation_date")
   user          User                @relation(fields: [userId], references: [id], onDelete: Cascade)
   ingredients   RecipeIngredient[]

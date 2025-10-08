@@ -23,15 +23,22 @@ export class RecipesService {
     const { totalCost, costPerServing, recipeIngredients } =
       this.calculateRecipeCosts(dto.servings, dto.ingredients, ingredients);
 
+    const profitMarginDecimal = new Prisma.Decimal(dto.profitMargin ?? 200);
+    const suggestedPrice = this.calculateSuggestedPrice(
+      costPerServing,
+      profitMarginDecimal,
+    );
+
     return this.prisma.recipe.create({
       data: {
         userId,
         name: dto.name,
         description: dto.description ?? null,
         servings: dto.servings,
-        suggestedPrice: dto.suggestedPrice,
+        suggestedPrice,
         totalCost,
         costPerServing,
+        profitMargin: profitMarginDecimal,
         ingredients: {
           create: recipeIngredients,
         },
@@ -64,6 +71,10 @@ export class RecipesService {
 
     const updatedServings = dto.servings ?? existing.servings;
 
+    let profitMargin = dto.profitMargin !== undefined
+      ? new Prisma.Decimal(dto.profitMargin)
+      : existing.profitMargin ?? new Prisma.Decimal(200);
+
     let totalCost = existing.totalCost;
     let costPerServing = existing.costPerServing;
     let ingredientsUpdate:
@@ -91,15 +102,18 @@ export class RecipesService {
       costPerServing = totalCost.div(servingsDecimal);
     }
 
+    const suggestedPrice = this.calculateSuggestedPrice(costPerServing, profitMargin);
+
     return this.prisma.recipe.update({
       where: { id },
       data: {
         name: dto.name ?? existing.name,
         description: dto.description ?? existing.description,
         servings: updatedServings,
-        suggestedPrice: dto.suggestedPrice ?? existing.suggestedPrice,
+        suggestedPrice,
         totalCost,
         costPerServing,
+        profitMargin,
         ingredients: ingredientsUpdate,
       },
       include: this.defaultInclude,
@@ -181,6 +195,16 @@ export class RecipesService {
       costPerServing,
       recipeIngredients,
     };
+  }
+
+  private calculateSuggestedPrice(
+    costPerServing: Prisma.Decimal,
+    profitMargin: Prisma.Decimal,
+  ) {
+    const multiplier = profitMargin
+      .div(new Prisma.Decimal(100))
+      .add(new Prisma.Decimal(1));
+    return costPerServing.mul(multiplier);
   }
 
   private readonly defaultInclude = {
