@@ -47,6 +47,7 @@ function buildInitialSelectedIngredients(
 
 //Função que irá arredondar um número para 2 casas decimais
 function round2(n: number) {
+  if (!Number.isFinite(n)) return 0;
   return Math.round(n * 100) / 100;
 }
 
@@ -134,12 +135,17 @@ export function RecipeFormScreen({
   }, [selectedIngredients]);
 
   const parsedServings = Number.parseInt(servings);
-  const costPerServing = useMemo(() => {
-    if (!Number.isFinite(parsedServings) || parsedServings <= 0) {
-      return 0;
-    }
+  // custo por porção bruto
+  const costPerServingRaw = useMemo(() => {
+    if (!Number.isFinite(parsedServings) || parsedServings <= 0) return 0;
     return totalCost / parsedServings;
   }, [parsedServings, totalCost]);
+
+  // custo por porção ARREDONDADO: usar em TODO o restante
+  const costPerServing = useMemo(
+    () => round2(costPerServingRaw),
+    [costPerServingRaw]
+  );
 
   // compute suggested price from profitMargin (%) and costPerServing
   const effectiveSuggestedPrice = useMemo(() => {
@@ -154,7 +160,7 @@ export function RecipeFormScreen({
       price = totalCost * 3;
     }
 
-    return round2(price);
+    return round2(price); // sempre 2 casas
   }, [profitMargin, costPerServing, totalCost]);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
