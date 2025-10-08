@@ -1,39 +1,48 @@
-"use client"
+"use client";
 
-import { useMemo, useState } from "react"
+import { useMemo, useState } from "react";
 
-import { Button } from "@/components/ui/button"
-import { Card } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import type { CreateRecipePayload, Ingredient, Recipe, UpdateRecipePayload } from "@/lib/types"
-import { ArrowLeft, DollarSign, Plus, Trash2 } from "lucide-react"
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import type {
+  CreateRecipePayload,
+  Ingredient,
+  Recipe,
+  UpdateRecipePayload,
+} from "@/lib/types";
+import { ArrowLeft, DollarSign, Plus, Trash2 } from "lucide-react";
 
 interface RecipeFormScreenProps {
-  ingredients: Ingredient[]
-  onSave: (payload: CreateRecipePayload | (UpdateRecipePayload & { id: number })) => Promise<void>
-  onCancel: () => void
-  onAddIngredient: () => void
-  editingRecipe?: Recipe | null
-  loading?: boolean
+  ingredients: Ingredient[];
+  onSave: (
+    payload: CreateRecipePayload | (UpdateRecipePayload & { id: number })
+  ) => Promise<void>;
+  onCancel: () => void;
+  onAddIngredient: () => void;
+  editingRecipe?: Recipe | null;
+  loading?: boolean;
 }
 
 interface SelectedIngredient {
-  ingredientId: number
-  ingredient: Ingredient
-  quantity: number
+  ingredientId: number;
+  ingredient: Ingredient;
+  quantity: number;
 }
 
-function buildInitialSelectedIngredients(recipe?: Recipe | null): SelectedIngredient[] {
+function buildInitialSelectedIngredients(
+  recipe?: Recipe | null
+): SelectedIngredient[] {
   if (!recipe) {
-    return []
+    return [];
   }
 
   return recipe.ingredients.map((detail) => ({
     ingredientId: detail.ingredientId,
     ingredient: detail.ingredient,
     quantity: detail.quantity,
-  }))
+  }));
 }
 
 export function RecipeFormScreen({
@@ -44,23 +53,43 @@ export function RecipeFormScreen({
   editingRecipe,
   loading,
 }: RecipeFormScreenProps) {
-  const [name, setName] = useState(editingRecipe?.name ?? "")
-  const [description, setDescription] = useState(editingRecipe?.description ?? "")
-  const [servings, setServings] = useState(editingRecipe ? String(editingRecipe.servings) : "")
-  const [suggestedPrice, setSuggestedPrice] = useState(
-    editingRecipe?.suggestedPrice ? String(editingRecipe.suggestedPrice) : "",
-  )
-  const [selectedIngredients, setSelectedIngredients] = useState<SelectedIngredient[]>(
-    buildInitialSelectedIngredients(editingRecipe),
-  )
-  const [showIngredientSelector, setShowIngredientSelector] = useState(false)
-  const [submitting, setSubmitting] = useState(false)
+  const [name, setName] = useState(editingRecipe?.name ?? "");
+  const [description, setDescription] = useState(
+    editingRecipe?.description ?? ""
+  );
+  const [servings, setServings] = useState(
+    editingRecipe ? String(editingRecipe.servings) : ""
+  );
+
+  // profit margin (%) state replaces the previous absolute suggestedPrice input.
+  // If editing an existing recipe, compute current margin from saved suggestedPrice and costPerServing.
+  const initialProfitMargin = (() => {
+    if (
+      editingRecipe &&
+      editingRecipe.costPerServing > 0 &&
+      editingRecipe.suggestedPrice > 0
+    ) {
+      const pct =
+        (editingRecipe.suggestedPrice / editingRecipe.costPerServing - 1) * 100;
+      return String(Number.isFinite(pct) ? Number(pct.toFixed(2)) : 200);
+    }
+    return "200"; // default 200% (multiplier 3) to match detail view behavior
+  })();
+  const [profitMargin, setProfitMargin] = useState(initialProfitMargin);
+
+  const [selectedIngredients, setSelectedIngredients] = useState<
+    SelectedIngredient[]
+  >(buildInitialSelectedIngredients(editingRecipe));
+  const [showIngredientSelector, setShowIngredientSelector] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   const handleAddIngredient = (ingredient: Ingredient) => {
-    const exists = selectedIngredients.some((item) => item.ingredientId === ingredient.id)
+    const exists = selectedIngredients.some(
+      (item) => item.ingredientId === ingredient.id
+    );
     if (exists) {
-      setShowIngredientSelector(false)
-      return
+      setShowIngredientSelector(false);
+      return;
     }
 
     setSelectedIngredients([
@@ -70,51 +99,64 @@ export function RecipeFormScreen({
         ingredient,
         quantity: 0,
       },
-    ])
+    ]);
 
-    setShowIngredientSelector(false)
-  }
+    setShowIngredientSelector(false);
+  };
 
-  const handleUpdateIngredientQuantity = (ingredientId: number, quantity: number) => {
+  const handleUpdateIngredientQuantity = (
+    ingredientId: number,
+    quantity: number
+  ) => {
     setSelectedIngredients((prev) =>
-      prev.map((item) => (item.ingredientId === ingredientId ? { ...item, quantity } : item)),
-    )
-  }
+      prev.map((item) =>
+        item.ingredientId === ingredientId ? { ...item, quantity } : item
+      )
+    );
+  };
 
   const handleRemoveIngredient = (ingredientId: number) => {
-    setSelectedIngredients((prev) => prev.filter((item) => item.ingredientId !== ingredientId))
-  }
+    setSelectedIngredients((prev) =>
+      prev.filter((item) => item.ingredientId !== ingredientId)
+    );
+  };
 
   const totalCost = useMemo(() => {
-    return selectedIngredients.reduce((acc, item) => acc + item.quantity * item.ingredient.costPerUnit, 0)
-  }, [selectedIngredients])
+    return selectedIngredients.reduce(
+      (acc, item) => acc + item.quantity * item.ingredient.costPerUnit,
+      0
+    );
+  }, [selectedIngredients]);
 
-  const parsedServings = Number.parseInt(servings)
+  const parsedServings = Number.parseInt(servings);
   const costPerServing = useMemo(() => {
     if (!Number.isFinite(parsedServings) || parsedServings <= 0) {
-      return 0
+      return 0;
     }
+    return totalCost / parsedServings;
+  }, [parsedServings, totalCost]);
 
-    return totalCost / parsedServings
-  }, [parsedServings, totalCost])
-
+  // compute suggested price from profitMargin (%) and costPerServing
   const effectiveSuggestedPrice = useMemo(() => {
-    const parsed = Number.parseFloat(suggestedPrice)
-    if (Number.isFinite(parsed) && parsed > 0) {
-      return parsed
+    const parsed = Number.parseFloat(profitMargin);
+    if (Number.isFinite(parsed) && parsed >= 0 && costPerServing > 0) {
+      return costPerServing * (1 + parsed / 100);
     }
-    return totalCost * 1.3
-  }, [suggestedPrice, totalCost])
+    // fallback: default to 3x per-portion if costPerServing is available
+    if (costPerServing > 0) return costPerServing * 3;
+    // last fallback: totalCost * 3 (no servings yet)
+    return totalCost * 3;
+  }, [profitMargin, costPerServing, totalCost]);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
+    event.preventDefault();
 
     if (!name.trim()) {
-      return
+      return;
     }
 
     if (!Number.isFinite(parsedServings) || parsedServings <= 0) {
-      return
+      return;
     }
 
     const cleanedIngredients = selectedIngredients
@@ -122,39 +164,40 @@ export function RecipeFormScreen({
       .map((item) => ({
         ingredientId: item.ingredientId,
         quantity: item.quantity,
-      }))
+      }));
 
     if (cleanedIngredients.length === 0) {
-      setShowIngredientSelector(true)
-      return
+      setShowIngredientSelector(true);
+      return;
     }
 
     const payloadBase: Omit<CreateRecipePayload, "suggestedPrice"> & {
-      suggestedPrice: number
+      suggestedPrice: number;
     } = {
       name: name.trim(),
       servings: parsedServings,
       description: description.trim() ? description.trim() : undefined,
       ingredients: cleanedIngredients,
+      // send the computed suggestedPrice based on chosen margin
       suggestedPrice: effectiveSuggestedPrice,
-    }
+    };
 
-    setSubmitting(true)
+    setSubmitting(true);
     try {
       if (editingRecipe) {
         await onSave({
           id: editingRecipe.id,
           ...payloadBase,
-        })
+        });
       } else {
-        await onSave(payloadBase)
+        await onSave(payloadBase);
       }
     } finally {
-      setSubmitting(false)
+      setSubmitting(false);
     }
-  }
+  };
 
-  const formDisabled = submitting || loading
+  const formDisabled = submitting || loading;
 
   return (
     <div className="min-h-screen bg-background pb-24">
@@ -169,7 +212,9 @@ export function RecipeFormScreen({
           >
             <ArrowLeft className="w-5 h-5" />
           </Button>
-          <h1 className="text-2xl font-bold">{editingRecipe ? "Editar Receita" : "Nova Receita"}</h1>
+          <h1 className="text-2xl font-bold">
+            {editingRecipe ? "Editar Receita" : "Nova Receita"}
+          </h1>
         </div>
       </div>
 
@@ -220,18 +265,20 @@ export function RecipeFormScreen({
                 required
               />
             </div>
+
+            {/* NEW: Profit margin (%) field */}
             <div className="space-y-2">
-              <Label htmlFor="suggestedPrice" className="text-foreground">
-                Preço sugerido (opcional)
+              <Label htmlFor="profitMargin" className="text-foreground">
+                Margem de Lucro (%)
               </Label>
               <Input
-                id="suggestedPrice"
+                id="profitMargin"
                 type="number"
-                step="0.01"
+                step="0.1"
                 min="0"
-                placeholder={`Ex: ${(costPerServing * 3).toFixed(2)}`}
-                value={suggestedPrice}
-                onChange={(e) => setSuggestedPrice(e.target.value)}
+                placeholder="Ex: 200"
+                value={profitMargin}
+                onChange={(e) => setProfitMargin(e.target.value)}
                 className="h-12 text-base bg-background"
               />
             </div>
@@ -241,7 +288,9 @@ export function RecipeFormScreen({
         {/* Ingredients */}
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <Label className="text-lg font-semibold text-foreground">Ingredientes</Label>
+            <Label className="text-lg font-semibold text-foreground">
+              Ingredientes
+            </Label>
             <Button
               type="button"
               variant="outline"
@@ -256,18 +305,24 @@ export function RecipeFormScreen({
 
           {ingredients.length === 0 ? (
             <Card className="p-6 text-center bg-muted/50">
-              <p className="text-sm text-muted-foreground">Cadastre ingredientes primeiro</p>
+              <p className="text-sm text-muted-foreground">
+                Cadastre ingredientes primeiro
+              </p>
             </Card>
           ) : (
             <>
               {selectedIngredients.length === 0 ? (
                 <Card className="p-6 text-center bg-muted/50">
-                  <p className="text-sm text-muted-foreground mb-3">Nenhum ingrediente adicionado</p>
+                  <p className="text-sm text-muted-foreground mb-3">
+                    Nenhum ingrediente adicionado
+                  </p>
                   <Button
                     type="button"
                     variant="outline"
                     size="sm"
-                    onClick={() => setShowIngredientSelector(!showIngredientSelector)}
+                    onClick={() =>
+                      setShowIngredientSelector(!showIngredientSelector)
+                    }
                     className="text-primary border-primary"
                   >
                     <Plus className="w-4 h-4 mr-1" />
@@ -277,20 +332,27 @@ export function RecipeFormScreen({
               ) : (
                 <div className="space-y-3">
                   {selectedIngredients.map((item) => {
-                    const itemCost = item.quantity * item.ingredient.costPerUnit
+                    const itemCost =
+                      item.quantity * item.ingredient.costPerUnit;
 
                     return (
                       <Card key={item.ingredientId} className="p-4 bg-card">
                         <div className="flex items-start justify-between mb-3">
                           <div className="flex-1">
-                            <h4 className="font-semibold text-foreground">{item.ingredient.name}</h4>
-                            <p className="text-xs text-muted-foreground">Custo: R$ {itemCost.toFixed(2)}</p>
+                            <h4 className="font-semibold text-foreground">
+                              {item.ingredient.name}
+                            </h4>
+                            <p className="text-xs text-muted-foreground">
+                              Custo: R$ {itemCost.toFixed(2)}
+                            </p>
                           </div>
                           <Button
                             type="button"
                             variant="ghost"
                             size="icon"
-                            onClick={() => handleRemoveIngredient(item.ingredientId)}
+                            onClick={() =>
+                              handleRemoveIngredient(item.ingredientId)
+                            }
                             className="text-destructive hover:bg-destructive/10"
                             disabled={formDisabled}
                           >
@@ -307,7 +369,7 @@ export function RecipeFormScreen({
                             onChange={(event) =>
                               handleUpdateIngredientQuantity(
                                 item.ingredientId,
-                                Number.parseFloat(event.target.value) || 0,
+                                Number.parseFloat(event.target.value) || 0
                               )
                             }
                             className="h-10 bg-background"
@@ -319,14 +381,16 @@ export function RecipeFormScreen({
                           </span>
                         </div>
                       </Card>
-                    )
+                    );
                   })}
 
                   <Button
                     type="button"
                     variant="outline"
                     className="w-full border-dashed border-primary text-primary hover:bg-primary/10 bg-transparent"
-                    onClick={() => setShowIngredientSelector(!showIngredientSelector)}
+                    onClick={() =>
+                      setShowIngredientSelector(!showIngredientSelector)
+                    }
                     disabled={formDisabled}
                   >
                     <Plus className="w-4 h-4 mr-2" />
@@ -338,9 +402,16 @@ export function RecipeFormScreen({
               {/* Ingredient Selector */}
               {showIngredientSelector && (
                 <Card className="p-4 space-y-2 bg-card border-2 border-primary">
-                  <p className="text-sm font-semibold text-foreground mb-2">Selecione um ingrediente:</p>
+                  <p className="text-sm font-semibold text-foreground mb-2">
+                    Selecione um ingrediente:
+                  </p>
                   {ingredients
-                    .filter((ing) => !selectedIngredients.find((s) => s.ingredientId === ing.id))
+                    .filter(
+                      (ing) =>
+                        !selectedIngredients.find(
+                          (s) => s.ingredientId === ing.id
+                        )
+                    )
                     .map((ing) => (
                       <button
                         key={ing.id}
@@ -348,9 +419,12 @@ export function RecipeFormScreen({
                         onClick={() => handleAddIngredient(ing)}
                         className="w-full text-left p-3 rounded-lg hover:bg-muted transition-colors"
                       >
-                        <div className="font-medium text-foreground">{ing.name}</div>
+                        <div className="font-medium text-foreground">
+                          {ing.name}
+                        </div>
                         <div className="text-xs text-muted-foreground">
-                          R$ {ing.costPerUnit.toFixed(2)} por {ing.unitOfMeasure}
+                          R$ {ing.costPerUnit.toFixed(2)} por{" "}
+                          {ing.unitOfMeasure}
                         </div>
                       </button>
                     ))}
@@ -366,17 +440,24 @@ export function RecipeFormScreen({
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-sm text-foreground">Custo Total:</span>
-                <span className="text-lg font-bold text-foreground">R$ {totalCost.toFixed(2)}</span>
+                <span className="text-lg font-bold text-foreground">
+                  R$ {totalCost.toFixed(2)}
+                </span>
               </div>
               <div className="flex items-center justify-between pt-3 border-t border-border">
-                <span className="text-sm text-foreground">Custo por Porção:</span>
+                <span className="text-sm text-foreground">
+                  Custo por Porção:
+                </span>
                 <div className="flex items-center gap-1">
                   <DollarSign className="w-5 h-5 text-primary" />
-                  <span className="text-2xl font-bold text-primary">{costPerServing.toFixed(2)}</span>
+                  <span className="text-2xl font-bold text-primary">
+                    {costPerServing.toFixed(2)}
+                  </span>
                 </div>
               </div>
               <p className="text-xs text-muted-foreground text-center pt-2">
-                Sugestão: venda por pelo menos R$ {(costPerServing * 3).toFixed(2)} para ter lucro
+                Sugestão: venda por pelo menos R${" "}
+                {(costPerServing * 3).toFixed(2)} para ter lucro
               </p>
             </div>
           </Card>
@@ -386,11 +467,20 @@ export function RecipeFormScreen({
         <Button
           type="submit"
           className="w-full h-12 text-base font-semibold bg-primary hover:bg-primary/90 text-primary-foreground"
-          disabled={formDisabled || !name || !servings || selectedIngredients.length === 0}
+          disabled={
+            formDisabled ||
+            !name ||
+            !servings ||
+            selectedIngredients.length === 0
+          }
         >
-          {submitting || loading ? "Salvando..." : editingRecipe ? "Salvar Alterações" : "Salvar Receita"}
+          {submitting || loading
+            ? "Salvando..."
+            : editingRecipe
+            ? "Salvar Alterações"
+            : "Salvar Receita"}
         </Button>
       </form>
     </div>
-  )
+  );
 }
