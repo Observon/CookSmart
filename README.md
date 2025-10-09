@@ -102,7 +102,7 @@ CookSmart/
 3. **Execute as migrações do Prisma**
    ```bash
    pnpm prisma:format
-   pnpm prisma:migrate --name init
+   pnpm prisma migrate dev
    pnpm prisma:generate
    ```
 
@@ -221,8 +221,15 @@ Ambos dependem de `useAuth()` para obter o token JWT. Ao integrar novas telas, p
 ### Gestão de Receitas
 - Criação de receitas com lista de ingredientes e quantidades
 - Cálculo automático do custo total baseado nos ingredientes
-- Definição de margem de lucro e sugestão de preço de venda
+- Definição de margem de lucro (%) por receita e sugestão de preço de venda baseada nesse valor
 - Edição e exclusão de receitas
+
+## 💰 Margem de Lucro Personalizada
+
+- **Cadastro/Edição**: ao criar ou editar uma receita na UI (`RecipeFormScreen`), informe a margem de lucro desejada em porcentagem. O frontend envia `profitMargin` para a API.
+- **Cálculo no backend**: o serviço de receitas (`api/src/recipes/recipes.service.ts`) calcula `suggestedPrice` usando `costPerServing * (1 + profitMargin/100)` e salva ambos os valores.
+- **Exibição**: telas de listagem e detalhes (`RecipeListScreen`, `RecipeDetailScreen`) mostram o preço sugerido retornado pela API e a margem configurada, garantindo consistência entre cliente e servidor.
+- **API**: os endpoints `/recipes` (POST/PATCH/GET) agora retornam o campo `profitMargin`, permitindo integrações que ajustem a margem dinamicamente.
 
 ### Controle de Compras
 - Registro de compras de insumos

@@ -9,6 +9,7 @@ import {
   IsPositive,
   IsString,
   MaxLength,
+  Min,
   ValidateNested,
 } from 'class-validator';
 
@@ -35,10 +36,14 @@ export class CreateRecipeDto {
   @IsPositive()
   servings: number;
 
-  @ApiProperty({ description: 'Preço sugerido de venda', example: 19.9 })
+  @ApiPropertyOptional({
+    description: 'Margem de lucro percentual utilizada no cálculo do preço sugerido',
+    example: 200,
+  })
+  @IsOptional()
   @IsNumber({ maxDecimalPlaces: 2 })
-  @IsPositive()
-  suggestedPrice: number;
+  @Min(0)
+  profitMargin?: number;
 
   @ApiProperty({ description: 'Lista de ingredientes utilizados' })
   @IsArray()

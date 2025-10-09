@@ -53,13 +53,14 @@ export interface Recipe {
   suggestedPrice: number
   totalCost: number
   costPerServing: number
+  profitMargin: number
   ingredients: RecipeIngredientDetail[]
 }
 
 export interface CreateRecipePayload {
   name: string
   servings: number
-  suggestedPrice: number
+  profitMargin: number
   description?: string | null
   ingredients: RecipeIngredientInput[]
 }

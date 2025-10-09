@@ -11,6 +11,7 @@ function normalizeRecipe(raw: any): Recipe {
     suggestedPrice: Number(raw.suggestedPrice ?? 0),
     totalCost: Number(raw.totalCost ?? 0),
     costPerServing: Number(raw.costPerServing ?? 0),
+    profitMargin: Number(raw.profitMargin ?? 200),
     ingredients: Array.isArray(raw.ingredients)
       ? raw.ingredients.map((item: any) => ({
           id: item.id ? Number(item.id) : Number(`${raw.id ?? 0}${item.ingredientId ?? 0}`),
