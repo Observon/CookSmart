@@ -160,6 +160,14 @@ export default function Home() {
     setCurrentScreen("ingredients-list");
   };
 
+  const handleDeleteIngredient = (ingredientId: number) => {
+    void deleteIngredient(ingredientId);
+    if (editingIngredientId === ingredientId) {
+      setEditingIngredientId(null);
+    }
+    setCurrentScreen("ingredients-list");
+  };
+
   if (initializing) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -270,6 +278,7 @@ export default function Home() {
             setEditingIngredientId(null);
             setCurrentScreen("ingredients-list");
           }}
+          onDelete={handleDeleteIngredient}
           editingIngredient={editingIngredient}
           loading={ingredientsSaving}
         />
