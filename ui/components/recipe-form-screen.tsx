@@ -45,6 +45,12 @@ function buildInitialSelectedIngredients(
   }));
 }
 
+//Função que irá arredondar um número para 2 casas decimais
+function round2(n: number) {
+  if (!Number.isFinite(n)) return 0;
+  return Math.round(n * 100) / 100;
+}
+
 export function RecipeFormScreen({
   ingredients,
   onSave,
@@ -124,12 +130,17 @@ export function RecipeFormScreen({
   }, [selectedIngredients]);
 
   const parsedServings = Number.parseInt(servings);
-  const costPerServing = useMemo(() => {
-    if (!Number.isFinite(parsedServings) || parsedServings <= 0) {
-      return 0;
-    }
+  // custo por porção bruto
+  const costPerServingRaw = useMemo(() => {
+    if (!Number.isFinite(parsedServings) || parsedServings <= 0) return 0;
     return totalCost / parsedServings;
   }, [parsedServings, totalCost]);
+
+  // custo por porção ARREDONDADO: usar em TODO o restante
+  const costPerServing = useMemo(
+    () => round2(costPerServingRaw),
+    [costPerServingRaw]
+  );
 
   // compute suggested price from profitMargin (%) and costPerServing
   const effectiveSuggestedPrice = useMemo(() => {
@@ -240,39 +251,34 @@ export function RecipeFormScreen({
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="servings" className="text-foreground">
-                Quantas Porções Rende?
-              </Label>
-              <Input
-                id="servings"
-                type="number"
-                min="1"
-                placeholder="Ex: 20"
-                value={servings}
-                onChange={(e) => setServings(e.target.value)}
-                className="h-12 text-base bg-background"
-                required
-              />
-            </div>
+          <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+            <Label className="text-foreground leading-tight">
+              Quantas Porções Rende?
+            </Label>
+            <Label className="text-foreground leading-tight">
+              Margem de Lucro (%)
+            </Label>
 
-            {/* NEW: Profit margin (%) field */}
-            <div className="space-y-2">
-              <Label htmlFor="profitMargin" className="text-foreground">
-                Margem de Lucro (%)
-              </Label>
-              <Input
-                id="profitMargin"
-                type="number"
-                step="0.1"
-                min="0"
-                placeholder="Ex: 200"
-                value={profitMargin}
-                onChange={(e) => setProfitMargin(e.target.value)}
-                className="h-12 text-base bg-background"
-              />
-            </div>
+            <Input
+              id="servings"
+              type="number"
+              min="1"
+              placeholder="Ex: 20"
+              value={servings}
+              onChange={(e) => setServings(e.target.value)}
+              className="h-12 text-base bg-background"
+              required
+            />
+            <Input
+              id="profitMargin"
+              type="number"
+              step="0.1"
+              min="0"
+              placeholder="Ex: 200"
+              value={profitMargin}
+              onChange={(e) => setProfitMargin(e.target.value)}
+              className="h-12 text-base bg-background"
+            />
           </div>
         </Card>
 
@@ -440,9 +446,9 @@ export function RecipeFormScreen({
                   Custo por Porção:
                 </span>
                 <div className="flex items-center gap-1">
-                  <DollarSign className="w-5 h-5 text-primary" />
+                  {/* <DollarSign className="w-5 h-5 text-primary" /> */}
                   <span className="text-2xl font-bold text-primary">
-                    {costPerServing.toFixed(2)}
+                    R$ {costPerServing.toFixed(2)}
                   </span>
                 </div>
               </div>
