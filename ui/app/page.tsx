@@ -29,6 +29,7 @@ import type {
   UpdateIngredientPayload,
   UpdateRecipePayload,
 } from "@/lib/types";
+import { toast } from "sonner";
 
 export default function Home() {
   const { token, user, logout, loading: authLoading, initializing } = useAuth();
@@ -145,14 +146,24 @@ export default function Home() {
   };
 
   const handleDeleteRecipe = async (recipeId: number) => {
-    await deleteRecipe(recipeId); // Adicione async e await aqui
-    if (selectedRecipeId === recipeId) {
-      setSelectedRecipeId(null);
+    try {
+      await deleteRecipe(recipeId);
+      if (selectedRecipeId === recipeId) {
+        setSelectedRecipeId(null);
+      }
+      if (editingRecipeId === recipeId) {
+        setEditingRecipeId(null);
+      }
+      setCurrentScreen("list");
+      setRecipeToDelete(null);
+      toast.success("Receita excluída com sucesso");
+    } catch (error) {
+      const message = error instanceof Error 
+        ? error.message 
+        : "Erro ao excluir a receita";
+      toast.error(message);
+      setRecipeToDelete(null);
     }
-    if (editingRecipeId === recipeId) {
-      setEditingRecipeId(null);
-    }
-    setCurrentScreen("list");
   };
 
   const handleViewRecipe = (recipe: Recipe) => {
@@ -175,10 +186,19 @@ export default function Home() {
   };
 
   const handleDeleteIngredient = async (ingredientId: number) => {
-    await deleteIngredient(ingredientId);
-    setEditingIngredientId(null);
-    setCurrentScreen("ingredients-list");
-    setIngredientToDelete(null);
+    try {
+      await deleteIngredient(ingredientId);
+      setEditingIngredientId(null);
+      setCurrentScreen("ingredients-list");
+      setIngredientToDelete(null);
+      toast.success("Ingrediente excluído com sucesso");
+    } catch (error) {
+      const message = error instanceof Error 
+        ? error.message 
+        : "Erro ao excluir o ingrediente";
+      toast.error(message);
+      setIngredientToDelete(null);
+    }
   };
 
   if (initializing) {
