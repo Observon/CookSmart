@@ -12,6 +12,16 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/auth-context";
 import { useIngredients } from "@/hooks/use-ingredients";
 import { useRecipes } from "@/hooks/use-recipes";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import type {
   CreateIngredientPayload,
   CreateRecipePayload,
@@ -55,6 +65,7 @@ export default function Home() {
   const [editingIngredientId, setEditingIngredientId] = useState<number | null>(
     null
   );
+  const [recipeToDelete, setRecipeToDelete] = useState<number | null>(null);
 
   const selectedRecipe = useMemo<Recipe | null>(
     () =>
@@ -130,8 +141,8 @@ export default function Home() {
     setCurrentScreen("add-recipe");
   };
 
-  const handleDeleteRecipe = (recipeId: number) => {
-    void deleteRecipe(recipeId);
+  const handleDeleteRecipe = async (recipeId: number) => {
+    await deleteRecipe(recipeId); // Adicione async e await aqui
     if (selectedRecipeId === recipeId) {
       setSelectedRecipeId(null);
     }
@@ -242,7 +253,7 @@ export default function Home() {
           recipe={selectedRecipe}
           onBack={() => setCurrentScreen("list")}
           onEdit={() => handleEditRecipe(selectedRecipe)}
-          onDelete={() => handleDeleteRecipe(selectedRecipe.id)}
+          onDelete={() => setRecipeToDelete(selectedRecipe.id)}
         />
       )}
 
@@ -282,6 +293,37 @@ export default function Home() {
           onUpdatePrices={handleUpdateIngredientPrices}
         />
       )}
+
+      <AlertDialog
+        open={recipeToDelete !== null}
+        onOpenChange={(open) => {
+          if (!open) setRecipeToDelete(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir receita</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir esta receita? Esta ação não pode
+              ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Não</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={recipesSaving} // Desabilita o botão enquanto salva/deleta
+              onClick={async () => {
+                if (recipeToDelete !== null) {
+                  await handleDeleteRecipe(recipeToDelete);
+                }
+              }}
+              // className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {recipesSaving ? "Excluindo..." : "Sim, excluir"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
