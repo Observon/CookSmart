@@ -1,113 +1,171 @@
-"use client"
+"use client";
 
-import { useEffect, useState } from "react"
+import { useEffect, useState } from "react";
 
-import { Button } from "@/components/ui/button"
-import { Card } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import type { CreateIngredientPayload, Ingredient, UpdateIngredientPayload } from "@/lib/types"
-import { ArrowLeft } from "lucide-react"
-import { toast } from "sonner"
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import type {
+  CreateIngredientPayload,
+  Ingredient,
+  UpdateIngredientPayload,
+} from "@/lib/types";
+import { ArrowLeft, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 
 interface IngredientFormScreenProps {
-  onSave: (ingredient: CreateIngredientPayload | UpdateIngredientPayload) => Promise<void>
-  onCancel: () => void
-  editingIngredient?: Ingredient | null
-  loading?: boolean
+  onSave: (
+    ingredient: CreateIngredientPayload | UpdateIngredientPayload
+  ) => Promise<void>;
+  onCancel: () => void;
+  onDelete?: () => void; // Add this
+  editingIngredient?: Ingredient | null;
+  loading?: boolean;
 }
 
-const UNITS = ["kg", "g", "L", "ml", "unidade", "dúzia", "xícara", "colher (sopa)", "colher (chá)"]
+const UNITS = [
+  "kg",
+  "g",
+  "L",
+  "ml",
+  "unidade",
+  "dúzia",
+  "xícara",
+  "colher (sopa)",
+  "colher (chá)",
+];
 
-export function IngredientFormScreen({ onSave, onCancel, editingIngredient, loading }: IngredientFormScreenProps) {
-  const [name, setName] = useState("")
-  const [unit, setUnit] = useState("")
-  const [totalCost, setTotalCost] = useState("")
-  const [totalAmount, setTotalAmount] = useState("")
-  const [submitting, setSubmitting] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+export function IngredientFormScreen({
+  onSave,
+  onCancel,
+  onDelete,
+  editingIngredient,
+  loading,
+}: IngredientFormScreenProps) {
+  const [name, setName] = useState("");
+  const [unit, setUnit] = useState("");
+  const [totalCost, setTotalCost] = useState("");
+  const [totalAmount, setTotalAmount] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (editingIngredient) {
-      setName(editingIngredient.name)
-      setUnit(editingIngredient.unitOfMeasure)
-      setTotalCost(editingIngredient.totalCost.toString())
-      setTotalAmount(editingIngredient.totalAmount.toString())
+      setName(editingIngredient.name);
+      setUnit(editingIngredient.unitOfMeasure);
+      setTotalCost(editingIngredient.totalCost.toString());
+      setTotalAmount(editingIngredient.totalAmount.toString());
     } else {
-      setName("")
-      setUnit("")
-      setTotalCost("")
-      setTotalAmount("")
+      setName("");
+      setUnit("");
+      setTotalCost("");
+      setTotalAmount("");
     }
-  }, [editingIngredient])
+  }, [editingIngredient]);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
-    setError(null)
+    event.preventDefault();
+    setError(null);
 
-    const parsedCost = Number.parseFloat(totalCost)
-    const parsedAmount = Number.parseFloat(totalAmount)
+    const parsedCost = Number.parseFloat(totalCost);
+    const parsedAmount = Number.parseFloat(totalAmount);
 
-    if (!Number.isFinite(parsedCost) || parsedCost <= 0 || !Number.isFinite(parsedAmount) || parsedAmount <= 0) {
-      setError("Informe valores válidos para custo e quantidade")
-      return
+    if (
+      !Number.isFinite(parsedCost) ||
+      parsedCost <= 0 ||
+      !Number.isFinite(parsedAmount) ||
+      parsedAmount <= 0
+    ) {
+      setError("Informe valores válidos para custo e quantidade");
+      return;
     }
 
-    const payload: CreateIngredientPayload | UpdateIngredientPayload = editingIngredient
-      ? {
-          id: editingIngredient.id,
-          name,
-          unitOfMeasure: unit,
-          totalCost: parsedCost,
-          totalAmount: parsedAmount,
-          category: editingIngredient.category ?? undefined,
-        }
-      : {
-          name,
-          unitOfMeasure: unit,
-          totalCost: parsedCost,
-          totalAmount: parsedAmount,
-        }
+    const payload: CreateIngredientPayload | UpdateIngredientPayload =
+      editingIngredient
+        ? {
+            id: editingIngredient.id,
+            name,
+            unitOfMeasure: unit,
+            totalCost: parsedCost,
+            totalAmount: parsedAmount,
+            category: editingIngredient.category ?? undefined,
+          }
+        : {
+            name,
+            unitOfMeasure: unit,
+            totalCost: parsedCost,
+            totalAmount: parsedAmount,
+          };
 
-    setSubmitting(true)
+    setSubmitting(true);
     try {
-      await onSave(payload)
-      toast.success(editingIngredient ? "Ingrediente atualizado" : "Ingrediente criado")
+      await onSave(payload);
+      toast.success(
+        editingIngredient ? "Ingrediente atualizado" : "Ingrediente criado"
+      );
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Não foi possível salvar o ingrediente"
-      setError(message)
-      toast.error(message)
+      const message =
+        err instanceof Error
+          ? err.message
+          : "Não foi possível salvar o ingrediente";
+      setError(message);
+      toast.error(message);
     } finally {
-      setSubmitting(false)
+      setSubmitting(false);
     }
-  }
+  };
 
   const costPerUnit = (() => {
-    const parsedCost = Number.parseFloat(totalCost)
-    const parsedAmount = Number.parseFloat(totalAmount)
+    const parsedCost = Number.parseFloat(totalCost);
+    const parsedAmount = Number.parseFloat(totalAmount);
 
-    if (!Number.isFinite(parsedCost) || !Number.isFinite(parsedAmount) || parsedAmount <= 0) {
-      return "0.00"
+    if (
+      !Number.isFinite(parsedCost) ||
+      !Number.isFinite(parsedAmount) ||
+      parsedAmount <= 0
+    ) {
+      return "0.00";
     }
 
-    return (parsedCost / parsedAmount).toFixed(2)
-  })()
+    return (parsedCost / parsedAmount).toFixed(2);
+  })();
 
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
       <div className="bg-primary text-primary-foreground px-6 py-6 rounded-b-3xl shadow-lg">
-        <div className="flex items-center gap-3 mb-2">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={onCancel}
-            className="text-primary-foreground hover:bg-primary-foreground/20"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </Button>
-          <h1 className="text-2xl font-bold">{editingIngredient ? "Editar Ingrediente" : "Novo Ingrediente"}</h1>
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-3">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onCancel}
+              className="text-primary-foreground hover:bg-primary-foreground/20"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </Button>
+            <h1 className="text-2xl font-bold">
+              {editingIngredient ? "Editar Ingrediente" : "Novo Ingrediente"}
+            </h1>
+          </div>
+          {editingIngredient && onDelete && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onDelete}
+              className="text-destructive hover:bg-destructive/10"
+            >
+              <Trash2 className="w-5 h-5" />
+            </Button>
+          )}
         </div>
       </div>
 
@@ -187,17 +245,25 @@ export function IngredientFormScreen({ onSave, onCancel, editingIngredient, load
         {totalCost && totalAmount && (
           <Card className="p-5 bg-accent/50 border-accent">
             <div className="text-center space-y-1">
-              <p className="text-sm text-muted-foreground">Custo por {unit || "unidade"}:</p>
-              <p className="text-3xl font-bold text-primary">R$ {costPerUnit}</p>
+              <p className="text-sm text-muted-foreground">
+                Custo por {unit || "unidade"}:
+              </p>
+              <p className="text-3xl font-bold text-primary">
+                R$ {costPerUnit}
+              </p>
             </div>
           </Card>
         )}
 
-        {error && <p className="text-sm text-destructive text-center">{error}</p>}
+        {error && (
+          <p className="text-sm text-destructive text-center">{error}</p>
+        )}
 
         {/* Example */}
         <Card className="p-4 bg-muted/50">
-          <p className="text-xs text-muted-foreground mb-2 font-semibold">💡 Exemplo:</p>
+          <p className="text-xs text-muted-foreground mb-2 font-semibold">
+            💡 Exemplo:
+          </p>
           <p className="text-xs text-muted-foreground">
             Se você comprou 1kg de açúcar por R$ 5,00, preencha:
             <br />• Custo Total: 5.00
@@ -215,10 +281,10 @@ export function IngredientFormScreen({ onSave, onCancel, editingIngredient, load
           {submitting || loading
             ? "Salvando..."
             : editingIngredient
-              ? "Atualizar Ingrediente"
-              : "Salvar Ingrediente"}
+            ? "Atualizar Ingrediente"
+            : "Salvar Ingrediente"}
         </Button>
       </form>
     </div>
-  )
+  );
 }

@@ -66,6 +66,9 @@ export default function Home() {
     null
   );
   const [recipeToDelete, setRecipeToDelete] = useState<number | null>(null);
+  const [ingredientToDelete, setIngredientToDelete] = useState<number | null>(
+    null
+  );
 
   const selectedRecipe = useMemo<Recipe | null>(
     () =>
@@ -169,6 +172,13 @@ export default function Home() {
       )
     );
     setCurrentScreen("ingredients-list");
+  };
+
+  const handleDeleteIngredient = async (ingredientId: number) => {
+    await deleteIngredient(ingredientId);
+    setEditingIngredientId(null);
+    setCurrentScreen("ingredients-list");
+    setIngredientToDelete(null);
   };
 
   if (initializing) {
@@ -281,6 +291,7 @@ export default function Home() {
             setEditingIngredientId(null);
             setCurrentScreen("ingredients-list");
           }}
+          onDelete={() => setIngredientToDelete(editingIngredient.id)}
           editingIngredient={editingIngredient}
           loading={ingredientsSaving}
         />
@@ -320,6 +331,37 @@ export default function Home() {
               // className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               {recipesSaving ? "Excluindo..." : "Sim, excluir"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={ingredientToDelete !== null}
+        onOpenChange={(open) => {
+          if (!open) setIngredientToDelete(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir ingrediente</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir este ingrediente? Esta ação não
+              pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Não</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={ingredientsSaving}
+              onClick={async () => {
+                if (ingredientToDelete !== null) {
+                  await handleDeleteIngredient(ingredientToDelete);
+                }
+              }}
+              //className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {ingredientsSaving ? "Excluindo..." : "Sim, excluir"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
