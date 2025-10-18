@@ -12,6 +12,16 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/auth-context";
 import { useIngredients } from "@/hooks/use-ingredients";
 import { useRecipes } from "@/hooks/use-recipes";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import type {
   CreateIngredientPayload,
   CreateRecipePayload,
@@ -19,6 +29,7 @@ import type {
   UpdateIngredientPayload,
   UpdateRecipePayload,
 } from "@/lib/types";
+import { toast } from "sonner";
 
 export default function Home() {
   const { token, user, logout, loading: authLoading, initializing } = useAuth();
@@ -53,6 +64,10 @@ export default function Home() {
   const [selectedRecipeId, setSelectedRecipeId] = useState<number | null>(null);
   const [editingRecipeId, setEditingRecipeId] = useState<number | null>(null);
   const [editingIngredientId, setEditingIngredientId] = useState<number | null>(
+    null
+  );
+  const [recipeToDelete, setRecipeToDelete] = useState<number | null>(null);
+  const [ingredientToDelete, setIngredientToDelete] = useState<number | null>(
     null
   );
 
@@ -130,15 +145,25 @@ export default function Home() {
     setCurrentScreen("add-recipe");
   };
 
-  const handleDeleteRecipe = (recipeId: number) => {
-    void deleteRecipe(recipeId);
-    if (selectedRecipeId === recipeId) {
-      setSelectedRecipeId(null);
+  const handleDeleteRecipe = async (recipeId: number) => {
+    try {
+      await deleteRecipe(recipeId);
+      if (selectedRecipeId === recipeId) {
+        setSelectedRecipeId(null);
+      }
+      if (editingRecipeId === recipeId) {
+        setEditingRecipeId(null);
+      }
+      setCurrentScreen("list");
+      setRecipeToDelete(null);
+      toast.success("Receita excluída com sucesso");
+    } catch (error) {
+      const message = error instanceof Error 
+        ? error.message 
+        : "Erro ao excluir a receita";
+      toast.error(message);
+      setRecipeToDelete(null);
     }
-    if (editingRecipeId === recipeId) {
-      setEditingRecipeId(null);
-    }
-    setCurrentScreen("list");
   };
 
   const handleViewRecipe = (recipe: Recipe) => {
@@ -158,6 +183,22 @@ export default function Home() {
       )
     );
     setCurrentScreen("ingredients-list");
+  };
+
+  const handleDeleteIngredient = async (ingredientId: number) => {
+    try {
+      await deleteIngredient(ingredientId);
+      setEditingIngredientId(null);
+      setCurrentScreen("ingredients-list");
+      setIngredientToDelete(null);
+      toast.success("Ingrediente excluído com sucesso");
+    } catch (error) {
+      const message = error instanceof Error 
+        ? error.message 
+        : "Erro ao excluir o ingrediente";
+      toast.error(message);
+      setIngredientToDelete(null);
+    }
   };
 
   if (initializing) {
@@ -242,7 +283,7 @@ export default function Home() {
           recipe={selectedRecipe}
           onBack={() => setCurrentScreen("list")}
           onEdit={() => handleEditRecipe(selectedRecipe)}
-          onDelete={() => handleDeleteRecipe(selectedRecipe.id)}
+          onDelete={() => setRecipeToDelete(selectedRecipe.id)}
         />
       )}
 
@@ -270,6 +311,7 @@ export default function Home() {
             setEditingIngredientId(null);
             setCurrentScreen("ingredients-list");
           }}
+          onDelete={() => setIngredientToDelete(editingIngredient.id)}
           editingIngredient={editingIngredient}
           loading={ingredientsSaving}
         />
@@ -282,6 +324,68 @@ export default function Home() {
           onUpdatePrices={handleUpdateIngredientPrices}
         />
       )}
+
+      <AlertDialog
+        open={recipeToDelete !== null}
+        onOpenChange={(open) => {
+          if (!open) setRecipeToDelete(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir receita</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir esta receita? Esta ação não pode
+              ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Não</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={recipesSaving} // Desabilita o botão enquanto salva/deleta
+              onClick={async () => {
+                if (recipeToDelete !== null) {
+                  await handleDeleteRecipe(recipeToDelete);
+                }
+              }}
+              // className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {recipesSaving ? "Excluindo..." : "Sim, excluir"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={ingredientToDelete !== null}
+        onOpenChange={(open) => {
+          if (!open) setIngredientToDelete(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir ingrediente</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir este ingrediente? Esta ação não
+              pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Não</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={ingredientsSaving}
+              onClick={async () => {
+                if (ingredientToDelete !== null) {
+                  await handleDeleteIngredient(ingredientToDelete);
+                }
+              }}
+              //className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {ingredientsSaving ? "Excluindo..." : "Sim, excluir"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
