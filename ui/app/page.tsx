@@ -197,7 +197,6 @@ export default function Home() {
       }
       setCurrentScreen("list");
       setRecipeToDelete(null);
-      toast.success("Receita excluída com sucesso");
     } catch (error) {
       const message = error instanceof Error 
         ? error.message 
@@ -295,7 +294,6 @@ export default function Home() {
       setEditingIngredientId(null);
       setCurrentScreen("ingredients-list");
       setIngredientToDelete(null);
-      toast.success("Ingrediente excluído com sucesso");
     } catch (error) {
       const message = error instanceof Error 
         ? error.message 
