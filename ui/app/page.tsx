@@ -31,7 +31,7 @@ const roundTo = (value: number, decimals: number) => {
   return Math.round(value * factor) / factor;
 };
 
-const normalizePurchaseDate = (rawDate?: string | null) => {
+export const normalizePurchaseDate = (rawDate?: string | null) => {
   if (!rawDate) {
     return new Date().toISOString().slice(0, 10);
   }
