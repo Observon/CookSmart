@@ -159,8 +159,7 @@ export class OcrService {
 
     const items = (document.LineItemGroups ?? [])
       .flatMap((group) => group.LineItems ?? [])
-      .map((item) => this.mapLineItem(item))
-      .filter((item) => Boolean(item.description));
+      .map((item) => this.mapLineItem(item));
 
     return {
       supplierName: summaryField('VENDOR_NAME') ?? summaryField('SUPPLIER'),
@@ -196,16 +195,53 @@ export class OcrService {
         }
       });
 
+    const description = (descriptionField?.ValueDetection?.Text ?? '').trim();
+    const quantity = this.parseNumber(quantityField?.ValueDetection?.Text);
+    const total = this.parseNumber(priceField?.ValueDetection?.Text);
+    const unitPriceRaw = this.parseNumber(unitPriceField?.ValueDetection?.Text);
+
+    const confidence = confidences.length
+      ? confidences.reduce((sum, value) => sum + value, 0) / confidences.length / 100
+      : (descriptionField?.ValueDetection?.Confidence ?? 0) / 100;
+
+    const issues: string[] = [];
+
+    if (!description) {
+      issues.push('missing_description');
+    }
+
+    if (quantity === null || quantity <= 0) {
+      issues.push('missing_quantity');
+    }
+
+    if (total === null || total <= 0) {
+      issues.push('missing_total');
+    }
+
+    if (unitPriceRaw === null && total !== null && quantity !== null && quantity > 0) {
+      issues.push('missing_unit_price');
+    }
+
+    if (confidence < 0.7) {
+      issues.push('low_confidence');
+    }
+
+    const unitPrice =
+      unitPriceRaw !== null
+        ? unitPriceRaw
+        : total !== null && quantity && quantity > 0
+          ? total / quantity
+          : null;
+
     return {
-      description: descriptionField?.ValueDetection?.Text ?? '',
-      quantity: this.parseNumber(quantityField?.ValueDetection?.Text),
+      description,
+      quantity,
       unit: unitField?.ValueDetection?.Text ?? null,
-      unitPrice: this.parseNumber(unitPriceField?.ValueDetection?.Text),
-      total: this.parseNumber(priceField?.ValueDetection?.Text),
-      confidence: confidences.length
-        ? confidences.reduce((sum, value) => sum + value, 0) / confidences.length / 100
-        : (descriptionField?.ValueDetection?.Confidence ?? 0) / 100,
+      unitPrice,
+      total,
+      confidence,
       rawText: descriptionField?.ValueDetection?.Text ?? null,
+      issues: issues.length ? issues : undefined,
     };
   }
 

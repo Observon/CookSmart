@@ -120,6 +120,7 @@ describe('OcrService', () => {
     expect(result.items[0].description).toBe('Pão Francês');
     expect(result.items[0].quantity).toBeCloseTo(0.485, 3);
     expect(result.items[0].total).toBeCloseTo(6.06, 2);
+    expect(result.items[0].issues).toBeUndefined();
     expect(result.receiptImageKey).toMatch(/ocr\//);
   });
 
@@ -135,5 +136,46 @@ describe('OcrService', () => {
     await expect(service.analyzeInvoice(createFile())).rejects.toBeInstanceOf(
       InternalServerErrorException,
     );
+  });
+
+  it('adiciona issues quando dados detectados estão incompletos', async () => {
+    const config = new ConfigService({ TEXTRACT_USE_S3: 'false' });
+    const service = new OcrService(config);
+
+    textractSendMock.mockResolvedValue({
+      ExpenseDocuments: [
+        {
+          LineItemGroups: [
+            {
+              LineItems: [
+                {
+                  LineItemExpenseFields: [
+                    { Type: { Text: 'ITEM' }, ValueDetection: { Text: '   ' } },
+                    { Type: { Text: 'QUANTITY' }, ValueDetection: { Text: '0' }, Confidence: 40 },
+                    { Type: { Text: 'PRICE' }, ValueDetection: { Text: '' }, Confidence: 40 },
+                  ],
+                },
+                {
+                  LineItemExpenseFields: [
+                    { Type: { Text: 'ITEM' }, ValueDetection: { Text: 'Farinha' }, Confidence: 60 },
+                    { Type: { Text: 'QUANTITY' }, ValueDetection: { Text: '1' }, Confidence: 60 },
+                    { Type: { Text: 'PRICE' }, ValueDetection: { Text: '10,00' }, Confidence: 60 },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+
+    const result = await service.analyzeInvoice(createFile());
+
+    expect(result.items).toHaveLength(2);
+    expect(result.items[0].issues).toEqual(
+      expect.arrayContaining(['missing_description', 'missing_total', 'missing_quantity', 'low_confidence']),
+    );
+    expect(result.items[1].issues).toEqual(expect.arrayContaining(['low_confidence', 'missing_unit_price']));
+    expect(result.items[1].unitPrice).toBeCloseTo(10, 2);
   });
 });

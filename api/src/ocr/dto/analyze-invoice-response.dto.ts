@@ -21,6 +21,13 @@ export class OcrInvoiceItemDto {
 
   @ApiPropertyOptional({ description: 'Campo bruto retornado pelo Textract para debug' })
   rawText?: string | null;
+
+  @ApiPropertyOptional({
+    description: 'Códigos de possíveis problemas detectados ao mapear o item',
+    example: ['missing_description', 'low_confidence'],
+    type: [String],
+  })
+  issues?: string[];
 }
 
 export class AnalyzeInvoiceResponseDto {

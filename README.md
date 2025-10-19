@@ -244,13 +244,14 @@ Ambos dependem de `useAuth()` para obter o token JWT. Ao integrar novas telas, p
 ## 📸 OCR de Notas Fiscais com Amazon Textract
 
 - **Upload seguro**: a tela `AiScannerScreen` envia imagens/PDFs via `POST /ocr/textract`. O backend (`api/src/ocr/ocr.controller.ts`) valida tamanho e formato, salva o arquivo no S3 (quando `TEXTRACT_USE_S3=true`) e aciona o Textract (`AnalyzeExpenseCommand`).
-- **Metadados extraídos**: o serviço (`api/src/ocr/ocr.service.ts`) normaliza fornecedor, CNPJ, número e valor total da nota, além dos itens com quantidades e valores. A resposta inclui `receiptImageKey` para referenciar o arquivo salvo.
-- **Atualização de preços**: após a revisão, a UI vincula cada item a um ingrediente e chama `/purchases` para registrar a compra. O serviço de compras (`api/src/purchases/purchases.service.ts`) cria `Purchase`/`PurchaseItem`, salva os metadados (fornecedor, número, moeda, total) e recalcula o custo dos ingredientes.
+- **Metadados & validação**: o serviço (`api/src/ocr/ocr.service.ts`) normaliza fornecedor, CNPJ, número e valor total. Cada item contém `issues[]` indicando inconsistências (`missing_description`, `missing_quantity`, `missing_total`, `missing_unit_price`, `low_confidence`, `unmatched_ingredient`).
+- **Revisão na UI**: `AiScannerScreen` exibe badges de atenção, impede seleção de itens sem ingrediente vinculado e destaca confiança. Itens sem correspondência podem ser vinculados manualmente antes de confirmar.
+- **Atualização de preços**: após a revisão, a UI vincula cada item válido e chama `/purchases` para registrar a compra. O serviço de compras (`api/src/purchases/purchases.service.ts`) cria `Purchase`/`PurchaseItem`, salva metadados e recalcula o custo dos ingredientes.
 - **Variáveis**: configure `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`, `TEXTRACT_BUCKET`, `TEXTRACT_USE_S3`, `TEXTRACT_MAX_FILE_SIZE_MB` e (opcional) `AWS_SESSION_TOKEN` em `api/.env`.
 - **Fluxo recomendado**:
   1. Inicie a API (`pnpm run start:dev`) e o frontend (`pnpm run dev`).
   2. Acesse a lista de ingredientes, clique em **Escanear Nota Fiscal** e envie o arquivo.
-  3. Revise os itens, vincule aos ingredientes e confirme; os preços e a compra são salvos automaticamente.
+  3. Revise as badges, vincule itens pendentes e confirme; os preços e a compra são salvos automaticamente.
 
 Exemplo de requisição manual (necessário token JWT válido):
 
