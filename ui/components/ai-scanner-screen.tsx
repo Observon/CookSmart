@@ -1,15 +1,18 @@
 "use client"
 
-import { useState } from "react"
+import { useCallback, useMemo, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
-import { ArrowLeft, Camera, Upload, Sparkles, Check, X } from "lucide-react"
+import { ArrowLeft, Camera, Upload, Sparkles, Check, X, Loader2 } from "lucide-react"
 import type { Ingredient } from "@/lib/types"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
+import { useAuth } from "@/context/auth-context"
+import { analyzeInvoice } from "@/lib/services/ocr"
+import { toast } from "sonner"
 
 interface InvoiceItem {
-  ingredientId: number
+  ingredientId: number | null
   ingredientName: string
   detectedName: string
   newCost: number
@@ -19,51 +22,171 @@ interface InvoiceItem {
   selected: boolean
 }
 
-interface AiScannerScreenProps {
+export interface ConfirmedPurchaseData {
+  updates: Array<{ ingredientId: number; newCost: number; newAmount: number }>
+  supplierName?: string | null
+  supplierTaxId?: string | null
+  invoiceNumber?: string | null
+  issueDate?: string | null
+  currency?: string | null
+  totalAmount?: number | null
+  receiptImageKey?: string | null
+}
+
+export interface AiScannerScreenProps {
   ingredients: Ingredient[]
   onBack: () => void
-  onUpdatePrices: (updates: Array<{ ingredientId: number; newCost: number; newAmount: number }>) => void
+  onUpdatePrices: (data: ConfirmedPurchaseData) => Promise<void> | void
 }
 
 export function AiScannerScreen({ ingredients, onBack, onUpdatePrices }: AiScannerScreenProps) {
+  const { token } = useAuth()
   const [isScanning, setIsScanning] = useState(false)
   const [scannedItems, setScannedItems] = useState<InvoiceItem[]>([])
   const [hasScanned, setHasScanned] = useState(false)
+  const [supplierName, setSupplierName] = useState<string | null>(null)
+  const [invoiceNumber, setInvoiceNumber] = useState<string | null>(null)
+  const [totalAmount, setTotalAmount] = useState<number | null>(null)
+  const [currency, setCurrency] = useState<string | null>(null)
+  const [supplierTaxId, setSupplierTaxId] = useState<string | null>(null)
+  const [issueDate, setIssueDate] = useState<string | null>(null)
+  const [receiptImageKey, setReceiptImageKey] = useState<string | null>(null)
+  const [uploadError, setUploadError] = useState<string | null>(null)
+  const [selectedFileName, setSelectedFileName] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
 
-  // Simulate AI scanning (in production, this would call an AI API)
-  const handleScan = () => {
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
+
+  const normalizedIngredients = useMemo(
+    () =>
+      ingredients.map((ingredient) => ({
+        ...ingredient,
+        normalizedName: normalizeText(ingredient.name),
+      })),
+    [ingredients],
+  )
+
+  const findMatchingIngredient = useCallback(
+    (description?: string | null) => {
+      if (!description) return null
+      const normalizedDescription = normalizeText(description)
+      if (!normalizedDescription) return null
+
+      let bestMatch: { ingredient: Ingredient; score: number } | null = null
+
+      for (const candidate of normalizedIngredients) {
+        if (!candidate.normalizedName) continue
+
+        let score = 0
+        if (normalizedDescription.includes(candidate.normalizedName)) {
+          score = candidate.normalizedName.length
+        } else {
+          const candidateTokens = candidate.normalizedName
+            .split(" ")
+            .filter((token) => token.length >= 3)
+          const descriptionTokens = normalizedDescription.split(" ")
+          const matches = candidateTokens.filter((token) => descriptionTokens.includes(token))
+          if (matches.length) {
+            score = matches.reduce((sum, token) => sum + token.length, 0)
+          }
+        }
+
+        if (score > 0 && (!bestMatch || score > bestMatch.score)) {
+          bestMatch = { ingredient: candidate, score }
+        }
+      }
+
+      return bestMatch?.ingredient ?? null
+    },
+    [normalizedIngredients],
+  )
+
+  const handleTriggerCapture = (captureCamera: boolean) => {
+    if (!fileInputRef.current) {
+      return
+    }
+    if (captureCamera) {
+      fileInputRef.current.setAttribute("capture", "environment")
+    } else {
+      fileInputRef.current.removeAttribute("capture")
+    }
+    fileInputRef.current.click()
+  }
+
+  const handleFileSelected = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) {
+      return
+    }
+
+    setSelectedFileName(file.name)
+    await processFile(file)
+    // reset input value to allow re-selecting the same file
+    event.target.value = ""
+  }
+
+  const processFile = async (file: File) => {
+    if (!token) {
+      toast.error("Você precisa estar autenticado para usar o OCR")
+      return
+    }
+
     setIsScanning(true)
+    setUploadError(null)
 
-    // Simulate scanning delay
-    setTimeout(() => {
-      // Mock detected items from invoice
-      const mockDetectedItems: InvoiceItem[] = [
-        {
-          ingredientId: ingredients[0]?.id ?? 1,
-          ingredientName: ingredients[0]?.name ?? "Açúcar",
-          detectedName: "AÇUCAR CRISTAL 1KG",
-          newCost: 4.99,
-          newAmount: 1000,
-          unit: ingredients[0]?.unitOfMeasure ?? "g",
-          confidence: 0.95,
-          selected: true,
-        },
-        {
-          ingredientId: ingredients[1]?.id ?? 2,
-          ingredientName: ingredients[1]?.name ?? "Leite",
-          detectedName: "LEITE INTEGRAL 1L",
-          newCost: 5.49,
-          newAmount: 1,
-          unit: ingredients[1]?.unitOfMeasure ?? "L",
-          confidence: 0.92,
-          selected: true,
-        },
-      ].filter((item) => ingredients.find((i) => i.id === item.ingredientId))
+    try {
+      const response = await analyzeInvoice(token, file)
 
-      setScannedItems(mockDetectedItems)
+      let unmatchedCount = 0
+      const matchedItems: InvoiceItem[] = []
+
+      for (const item of response.items) {
+        const ingredientMatch = findMatchingIngredient(item.description)
+
+        if (!ingredientMatch) {
+          unmatchedCount += 1
+          continue
+        }
+
+        const quantity = item.quantity && item.quantity > 0 ? item.quantity : 1
+        const total = resolveValue(item.total, item.unitPrice, quantity)
+
+        matchedItems.push({
+          ingredientId: ingredientMatch.id,
+          ingredientName: ingredientMatch.name,
+          detectedName: item.description ?? "",
+          newCost: total,
+          newAmount: quantity,
+          unit: item.unit ?? ingredientMatch.unitOfMeasure ?? "",
+          confidence: item.confidence ?? 0,
+          selected: true,
+        })
+      }
+
+      setScannedItems(matchedItems)
+      setSupplierName(response.supplierName ?? null)
+      setInvoiceNumber(response.invoiceNumber ?? null)
+      setTotalAmount(response.totalAmount ?? null)
+      setCurrency(response.currency ?? null)
+      setSupplierTaxId(response.supplierTaxId ?? null)
+      setIssueDate(response.issueDate ?? null)
+      setReceiptImageKey(response.receiptImageKey ?? null)
+
       setHasScanned(true)
+
+      if (!matchedItems.length) {
+        toast.info("Nenhum item reconhecido na nota. Ajuste manualmente ou tente outra foto.")
+      } else if (unmatchedCount > 0) {
+        toast.info(`${unmatchedCount} item(ns) ignorado(s) por não corresponderem a ingredientes cadastrados.`)
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Não foi possível processar a nota fiscal"
+      setUploadError(message)
+      setHasScanned(false)
+      toast.error(message)
+    } finally {
       setIsScanning(false)
-    }, 2000)
+    }
   }
 
   const handleToggleItem = (index: number) => {
@@ -71,22 +194,87 @@ export function AiScannerScreen({ ingredients, onBack, onUpdatePrices }: AiScann
   }
 
   const handleUpdateItem = (index: number, field: "newCost" | "newAmount", value: string) => {
-    const numValue = Number.parseFloat(value) || 0
+    const sanitized = value.replace(/,/g, ".")
+    const parsed = Number.parseFloat(sanitized)
+    const numValue = Number.isFinite(parsed) ? parsed : 0
     setScannedItems(scannedItems.map((item, i) => (i === index ? { ...item, [field]: numValue } : item)))
   }
 
-  const handleConfirmUpdates = () => {
+  const handleIngredientChange = (index: number, ingredientId: number | null) => {
+    setScannedItems((prev) =>
+      prev.map((item, i) => {
+        if (i !== index) return item
+
+        if (ingredientId == null) {
+          return {
+            ...item,
+            ingredientId: null,
+            ingredientName: item.detectedName || "Item sem correspondência",
+            selected: false,
+          }
+        }
+
+        const ingredient = ingredients.find((ing) => ing.id === ingredientId)
+
+        return {
+          ...item,
+          ingredientId,
+          ingredientName: ingredient?.name ?? item.ingredientName,
+          unit: ingredient?.unitOfMeasure ?? item.unit,
+          selected: true,
+        }
+      }),
+    )
+  }
+
+  const handleConfirmUpdates = async () => {
     const updates = scannedItems
-      .filter((item) => item.selected)
+      .filter((item) => item.selected && item.ingredientId != null)
       .map((item) => ({
-        ingredientId: item.ingredientId,
+        ingredientId: item.ingredientId as number,
         newCost: item.newCost,
         newAmount: item.newAmount,
       }))
-    onUpdatePrices(updates)
+
+    if (!updates.length) {
+      toast.error("Selecione pelo menos um ingrediente válido para atualizar")
+      return
+    }
+
+    const invalidEntry = updates.find((item) => item.newCost <= 0 || item.newAmount <= 0)
+    if (invalidEntry) {
+      toast.error("Revise os valores: custo e quantidade devem ser maiores que zero")
+      return
+    }
+
+    setSaving(true)
+    try {
+      await onUpdatePrices({
+        updates,
+        supplierName,
+        supplierTaxId,
+        invoiceNumber,
+        issueDate,
+        currency,
+        totalAmount,
+        receiptImageKey,
+      })
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Não foi possível registrar a compra"
+      toast.error(message)
+    } finally {
+      setSaving(false)
+    }
   }
 
-  const selectedCount = scannedItems.filter((item) => item.selected).length
+  const selectedCount = scannedItems.filter((item) => item.selected && item.ingredientId != null).length
+
+  const costPerUnit = (item: InvoiceItem) => {
+    if (!item.newAmount || item.newAmount <= 0) {
+      return "0.00"
+    }
+    return (item.newCost / item.newAmount).toFixed(2)
+  }
 
   return (
     <div className="min-h-screen bg-background pb-24">
@@ -126,17 +314,34 @@ export function AiScannerScreen({ ingredients, onBack, onUpdatePrices }: AiScann
                 </div>
                 <div className="flex flex-col gap-3 w-full max-w-xs pt-4">
                   <Button
-                    onClick={handleScan}
+                    onClick={() => handleTriggerCapture(true)}
                     disabled={isScanning}
                     className="h-12 bg-primary hover:bg-primary/90 text-primary-foreground"
                   >
-                    <Camera className="w-5 h-5 mr-2" />
-                    {isScanning ? "Escaneando..." : "Tirar Foto"}
+                    {isScanning ? (
+                      <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                    ) : (
+                      <Camera className="w-5 h-5 mr-2" />
+                    )}
+                    {isScanning ? "Processando..." : "Tirar Foto"}
                   </Button>
-                  <Button onClick={handleScan} disabled={isScanning} variant="outline" className="h-12 bg-transparent">
-                    <Upload className="w-5 h-5 mr-2" />
-                    Escolher da Galeria
+                  <Button
+                    onClick={() => handleTriggerCapture(false)}
+                    disabled={isScanning}
+                    variant="outline"
+                    className="h-12 bg-transparent"
+                  >
+                    {isScanning ? (
+                      <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                    ) : (
+                      <Upload className="w-5 h-5 mr-2" />
+                    )}
+                    {isScanning ? "Processando..." : "Escolher da Galeria"}
                   </Button>
+                  {uploadError && <p className="text-xs text-destructive">{uploadError}</p>}
+                  {selectedFileName && (
+                    <p className="text-xs text-muted-foreground">Último arquivo: {selectedFileName}</p>
+                  )}
                 </div>
               </div>
             </Card>
@@ -159,6 +364,41 @@ export function AiScannerScreen({ ingredients, onBack, onUpdatePrices }: AiScann
           </>
         ) : (
           <>
+            {(supplierName || invoiceNumber || totalAmount || supplierTaxId || issueDate) && (
+              <Card className="p-4 bg-card/80 border border-border/60">
+                <div className="space-y-1 text-sm">
+                  {supplierName && (
+                    <div>
+                      <span className="font-semibold text-foreground">Fornecedor:</span> {supplierName}
+                    </div>
+                  )}
+                  {supplierTaxId && (
+                    <div>
+                      <span className="font-semibold text-foreground">Documento:</span> {supplierTaxId}
+                    </div>
+                  )}
+                  {invoiceNumber && (
+                    <div>
+                      <span className="font-semibold text-foreground">Nota:</span> {invoiceNumber}
+                    </div>
+                  )}
+                  {issueDate && (
+                    <div>
+                      <span className="font-semibold text-foreground">Emissão:</span> {issueDate}
+                    </div>
+                  )}
+                  {typeof totalAmount === "number" && (
+                    <div>
+                      <span className="font-semibold text-foreground">Total:</span> {currency ?? "BRL"} {totalAmount.toFixed(2)}
+                    </div>
+                  )}
+                  {selectedFileName && (
+                    <div className="text-muted-foreground">Arquivo analisado: {selectedFileName}</div>
+                  )}
+                </div>
+              </Card>
+            )}
+
             {/* Scanned Items */}
             <Card className="p-4 bg-accent/30 border-accent">
               <div className="flex items-center gap-2">
@@ -171,7 +411,7 @@ export function AiScannerScreen({ ingredients, onBack, onUpdatePrices }: AiScann
             </Card>
 
             {scannedItems.map((item, index) => (
-              <Card key={item.ingredientId} className="p-5 bg-card">
+              <Card key={item.ingredientId ?? index} className="p-5 bg-card">
                 <div className="space-y-4">
                   {/* Header with checkbox */}
                   <div className="flex items-start gap-3">
@@ -182,9 +422,32 @@ export function AiScannerScreen({ ingredients, onBack, onUpdatePrices }: AiScann
                     />
                     <div className="flex-1">
                       <div className="flex items-start justify-between mb-2">
-                        <div>
+                        <div className="space-y-1">
                           <h3 className="text-lg font-semibold text-foreground">{item.ingredientName}</h3>
                           <p className="text-xs text-muted-foreground">Detectado: {item.detectedName}</p>
+                          <div className="mt-2">
+                            <label className="text-xs text-muted-foreground" htmlFor={`ingredient-select-${index}`}>
+                              Vincular ao ingrediente
+                            </label>
+                            <select
+                              id={`ingredient-select-${index}`}
+                              value={item.ingredientId ?? ""}
+                              onChange={(event) =>
+                                handleIngredientChange(
+                                  index,
+                                  event.target.value ? Number.parseInt(event.target.value, 10) : null,
+                                )
+                              }
+                              className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+                            >
+                              <option value="">Selecionar ingrediente</option>
+                              {ingredients.map((ingredient) => (
+                                <option key={ingredient.id} value={ingredient.id}>
+                                  {ingredient.name}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
                         </div>
                         <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-primary/10">
                           <Sparkles className="w-3 h-3 text-primary" />
@@ -221,10 +484,8 @@ export function AiScannerScreen({ ingredients, onBack, onUpdatePrices }: AiScann
                       {/* Cost per unit preview */}
                       <div className="mt-3 pt-3 border-t border-border">
                         <div className="flex items-center justify-between">
-                          <span className="text-sm text-muted-foreground">Custo por {item.unit}:</span>
-                          <span className="text-lg font-bold text-primary">
-                            R$ {(item.newCost / item.newAmount).toFixed(2)}
-                          </span>
+                          <span className="text-sm text-muted-foreground">Custo por {item.unit || "unidade"}:</span>
+                          <span className="text-lg font-bold text-primary">R$ {costPerUnit(item)}</span>
                         </div>
                       </div>
                     </div>
@@ -237,16 +498,25 @@ export function AiScannerScreen({ ingredients, onBack, onUpdatePrices }: AiScann
             <div className="fixed bottom-0 left-0 right-0 p-6 bg-background border-t border-border space-y-3">
               <Button
                 onClick={handleConfirmUpdates}
-                disabled={selectedCount === 0}
+                disabled={selectedCount === 0 || isScanning || saving}
                 className="w-full h-12 bg-primary hover:bg-primary/90 text-primary-foreground"
               >
-                <Check className="w-5 h-5 mr-2" />
-                Atualizar {selectedCount} {selectedCount === 1 ? "Ingrediente" : "Ingredientes"}
+                {saving ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : <Check className="w-5 h-5 mr-2" />}
+                {saving ? "Salvando..." : `Atualizar ${selectedCount} ${selectedCount === 1 ? "Ingrediente" : "Ingredientes"}`}
               </Button>
               <Button
                 onClick={() => {
                   setHasScanned(false)
                   setScannedItems([])
+                  setSupplierName(null)
+                  setInvoiceNumber(null)
+                  setTotalAmount(null)
+                  setCurrency(null)
+                  setUploadError(null)
+                  setSelectedFileName(null)
+                  setSupplierTaxId(null)
+                  setIssueDate(null)
+                  setReceiptImageKey(null)
                 }}
                 variant="outline"
                 className="w-full h-12"
@@ -258,6 +528,43 @@ export function AiScannerScreen({ ingredients, onBack, onUpdatePrices }: AiScann
           </>
         )}
       </div>
+
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/png,image/jpeg,application/pdf"
+        className="hidden"
+        onChange={handleFileSelected}
+      />
     </div>
   )
+}
+
+function normalizeText(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .replace(/[^a-zA-Z0-9\s]/g, " ")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim()
+}
+
+function resolveValue(total?: number | null, unitPrice?: number | null, quantity?: number | null): number {
+  if (typeof total === "number" && Number.isFinite(total)) {
+    return total
+  }
+  if (
+    typeof unitPrice === "number" &&
+    Number.isFinite(unitPrice) &&
+    typeof quantity === "number" &&
+    Number.isFinite(quantity) &&
+    quantity > 0
+  ) {
+    return unitPrice * quantity
+  }
+  if (typeof unitPrice === "number" && Number.isFinite(unitPrice)) {
+    return unitPrice
+  }
+  return 0
 }

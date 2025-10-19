@@ -19,13 +19,21 @@ async function parseErrorResponse(response: Response): Promise<string> {
 export async function apiFetch<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const { token, headers, ...rest } = options
 
+  const isFormData = typeof FormData !== "undefined" && rest.body instanceof FormData
+
+  const finalHeaders = new Headers(headers as HeadersInit | undefined)
+
+  if (token) {
+    finalHeaders.set("Authorization", `Bearer ${token}`)
+  }
+
+  if (!isFormData && !finalHeaders.has("Content-Type")) {
+    finalHeaders.set("Content-Type", "application/json")
+  }
+
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...rest,
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...headers,
-    },
+    headers: finalHeaders,
   })
 
   if (!response.ok) {

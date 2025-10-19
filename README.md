@@ -241,6 +241,36 @@ Ambos dependem de `useAuth()` para obter o token JWT. Ao integrar novas telas, p
 - Integração no cálculo de preço final
 - Relatórios de despesas
 
+## 📸 OCR de Notas Fiscais com Amazon Textract
+
+- **Upload seguro**: a tela `AiScannerScreen` envia imagens/PDFs via `POST /ocr/textract`. O backend (`api/src/ocr/ocr.controller.ts`) valida tamanho e formato, salva o arquivo no S3 (quando `TEXTRACT_USE_S3=true`) e aciona o Textract (`AnalyzeExpenseCommand`).
+- **Metadados extraídos**: o serviço (`api/src/ocr/ocr.service.ts`) normaliza fornecedor, CNPJ, número e valor total da nota, além dos itens com quantidades e valores. A resposta inclui `receiptImageKey` para referenciar o arquivo salvo.
+- **Atualização de preços**: após a revisão, a UI vincula cada item a um ingrediente e chama `/purchases` para registrar a compra. O serviço de compras (`api/src/purchases/purchases.service.ts`) cria `Purchase`/`PurchaseItem`, salva os metadados (fornecedor, número, moeda, total) e recalcula o custo dos ingredientes.
+- **Variáveis**: configure `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`, `TEXTRACT_BUCKET`, `TEXTRACT_USE_S3`, `TEXTRACT_MAX_FILE_SIZE_MB` e (opcional) `AWS_SESSION_TOKEN` em `api/.env`.
+- **Fluxo recomendado**:
+  1. Inicie a API (`pnpm run start:dev`) e o frontend (`pnpm run dev`).
+  2. Acesse a lista de ingredientes, clique em **Escanear Nota Fiscal** e envie o arquivo.
+  3. Revise os itens, vincule aos ingredientes e confirme; os preços e a compra são salvos automaticamente.
+
+Exemplo de requisição manual (necessário token JWT válido):
+
+```bash
+curl -X POST http://localhost:3000/ocr/textract \
+  -H "Authorization: Bearer <TOKEN>" \
+  -F file=@nota-fiscal.pdf
+```
+
+## 📊 Funcionalidades Principais
+
+### Gestão de Ingredientes
+- Cadastro de ingredientes com nome, unidade de medida e preço unitário
+- Histórico de compras e variação de preços
+
+### Despesas Operacionais
+- Cadastro de custos fixos e variáveis
+- Integração no cálculo de preço final
+- Relatórios de despesas
+
 ## 🤝 Contribuindo
 
 Contribuições são bem-vindas! Para contribuir:
@@ -253,7 +283,7 @@ Contribuições são bem-vindas! Para contribuir:
 
 ## 📝 Próximos Passos
 
-- [ ] Implementação completa do módulo OCR para leitura de notas fiscais
+- [x] Implementação do módulo OCR com Amazon Textract e integração com compras
 - [ ] Dashboard com gráficos e estatísticas
 - [ ] Exportação de relatórios em PDF
 - [ ] Aplicativo mobile
