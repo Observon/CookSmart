@@ -35,6 +35,8 @@ export function IngredientFormScreen({
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  const resolvedUnit = unit || editingIngredient?.unitOfMeasure || ""
+
   useEffect(() => {
     if (editingIngredient) {
       setName(editingIngredient.name)
@@ -73,6 +75,13 @@ export function IngredientFormScreen({
       return
     }
 
+    if (!resolvedUnit) {
+      const message = "Selecione uma unidade de medida para continuar."
+      setError(message)
+      toast.error(message)
+      return
+    }
+
     const parsedCost = Number.parseFloat(totalCost)
     const parsedAmount = Number.parseFloat(totalAmount)
 
@@ -85,14 +94,14 @@ export function IngredientFormScreen({
       ? {
           id: editingIngredient.id,
           name,
-          unitOfMeasure: unit,
+          unitOfMeasure: resolvedUnit,
           totalCost: parsedCost,
           totalAmount: parsedAmount,
           category: editingIngredient.category ?? undefined,
         }
       : {
           name,
-          unitOfMeasure: unit,
+          unitOfMeasure: resolvedUnit,
           totalCost: parsedCost,
           totalAmount: parsedAmount,
         }
@@ -157,7 +166,7 @@ export function IngredientFormScreen({
             <Label htmlFor="unit" className="text-foreground">
               Unidade de Medida
             </Label>
-            <Select value={unit} onValueChange={setUnit} required>
+            <Select value={resolvedUnit} onValueChange={setUnit} required>
               <SelectTrigger className="h-12 text-base bg-background">
                 <SelectValue placeholder="Selecione a unidade" />
               </SelectTrigger>
