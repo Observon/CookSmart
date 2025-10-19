@@ -205,7 +205,7 @@ export function AiScannerScreen({ ingredients, onBack, onUpdatePrices }: AiScann
           newAmount: quantityForMatched,
           unit: item.unit ?? ingredientMatch.unitOfMeasure ?? "",
           confidence: item.confidence ?? 0,
-          selected: true,
+          selected: false,
           autoMatched: true,
           issues: issues.length ? issues : undefined,
         })
@@ -238,8 +238,8 @@ export function AiScannerScreen({ ingredients, onBack, onUpdatePrices }: AiScann
   }
 
   const handleToggleItem = (index: number) => {
-    setScannedItems((prev) =>
-      prev.map((item, i) => {
+    setScannedItems((prev) => {
+      const next = prev.map((item, i) => {
         if (i !== index) return item
 
         if (!item.selected && item.ingredientId == null) {
@@ -247,9 +247,33 @@ export function AiScannerScreen({ ingredients, onBack, onUpdatePrices }: AiScann
           return item
         }
 
-        return { ...item, selected: !item.selected }
-      }),
-    )
+        const toggled = { ...item, selected: !item.selected }
+
+        if (!toggled.selected) {
+          return toggled
+        }
+
+        return toggled
+      })
+
+      const current = next[index]
+
+      if (current.selected && current.ingredientId != null) {
+        return next.map((item, i) => {
+          if (i === index) {
+            return item
+          }
+
+          if (item.ingredientId === current.ingredientId) {
+            return { ...item, selected: false }
+          }
+
+          return item
+        })
+      }
+
+      return next
+    })
   }
 
   const handleUpdateItem = (index: number, field: "newCost" | "newAmount", value: string) => {
@@ -260,8 +284,8 @@ export function AiScannerScreen({ ingredients, onBack, onUpdatePrices }: AiScann
   }
 
   const handleIngredientChange = (index: number, ingredientId: number | null) => {
-    setScannedItems((prev) =>
-      prev.map((item, i) => {
+    setScannedItems((prev) => {
+      const next = prev.map((item, i) => {
         if (i !== index) return item
 
         if (ingredientId == null) {
@@ -290,8 +314,26 @@ export function AiScannerScreen({ ingredients, onBack, onUpdatePrices }: AiScann
           autoMatched: false,
           issues: filteredIssues.length ? filteredIssues : undefined,
         }
-      }),
-    )
+      })
+
+      const current = next[index]
+
+      if (current.selected && current.ingredientId != null) {
+        return next.map((item, i) => {
+          if (i === index) {
+            return item
+          }
+
+          if (item.ingredientId === current.ingredientId) {
+            return { ...item, selected: false }
+          }
+
+          return item
+        })
+      }
+
+      return next
+    })
   }
 
   const handleConfirmUpdates = async () => {
