@@ -9,6 +9,7 @@ import { IngredientsModule } from './ingredients/ingredients.module';
 import { RecipesModule } from './recipes/recipes.module';
 import { PurchasesModule } from './purchases/purchases.module';
 import { OperationalExpensesModule } from './operational-expenses/operational-expenses.module';
+import { OcrModule } from './ocr/ocr.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { OperationalExpensesModule } from './operational-expenses/operational-ex
     RecipesModule,
     PurchasesModule,
     OperationalExpensesModule,
+    OcrModule,
   ],
   controllers: [AppController],
   providers: [AppService],

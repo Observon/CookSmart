@@ -20,11 +20,23 @@ export class PurchasesService {
     await this.ensureIngredientsBelongToUser(userId, ingredientIds);
 
     return this.prisma.$transaction(async (tx) => {
+      const totalAmountDecimal = dto.totalAmount !== undefined
+        ? new Prisma.Decimal(dto.totalAmount)
+        : dto.items.reduce(
+            (acc, item) => acc.add(new Prisma.Decimal(item.totalPrice)),
+            new Prisma.Decimal(0),
+          );
+
       const purchase = await tx.purchase.create({
         data: {
           userId,
           purchaseDate: new Date(dto.purchaseDate),
           supplier: dto.supplier ?? null,
+          receiptImage: dto.receiptImage ?? null,
+          invoiceNumber: dto.invoiceNumber ?? null,
+          supplierTaxId: dto.supplierTaxId ?? null,
+          currency: dto.currency ?? null,
+          totalAmount: totalAmountDecimal,
           items: {
             create: dto.items.map((item) => ({
               ingredientId: item.ingredientId,
@@ -138,6 +150,17 @@ export class PurchasesService {
             ? new Date(dto.purchaseDate)
             : purchase.purchaseDate,
           supplier: dto.supplier ?? purchase.supplier,
+          receiptImage:
+            dto.receiptImage !== undefined ? dto.receiptImage : purchase.receiptImage,
+          invoiceNumber:
+            dto.invoiceNumber !== undefined ? dto.invoiceNumber : purchase.invoiceNumber,
+          supplierTaxId:
+            dto.supplierTaxId !== undefined ? dto.supplierTaxId : purchase.supplierTaxId,
+          currency: dto.currency !== undefined ? dto.currency : purchase.currency,
+          totalAmount:
+            dto.totalAmount !== undefined
+              ? new Prisma.Decimal(dto.totalAmount)
+              : purchase.totalAmount,
         },
         include: this.defaultInclude,
       });
