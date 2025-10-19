@@ -334,6 +334,7 @@ export default function Home() {
           }}
           editingIngredient={editingIngredient}
           loading={ingredientsSaving}
+          existingIngredients={ingredients}
         />
       )}
 
@@ -372,6 +373,7 @@ export default function Home() {
           }}
           editingIngredient={editingIngredient}
           loading={ingredientsSaving}
+          existingIngredients={ingredients}
         />
       )}
 

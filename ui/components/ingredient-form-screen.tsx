@@ -16,11 +16,18 @@ interface IngredientFormScreenProps {
   onCancel: () => void
   editingIngredient?: Ingredient | null
   loading?: boolean
+  existingIngredients?: Ingredient[]
 }
 
 const UNITS = ["kg", "g", "L", "ml", "unidade", "dúzia", "xícara", "colher (sopa)", "colher (chá)"]
 
-export function IngredientFormScreen({ onSave, onCancel, editingIngredient, loading }: IngredientFormScreenProps) {
+export function IngredientFormScreen({
+  onSave,
+  onCancel,
+  editingIngredient,
+  loading,
+  existingIngredients = [],
+}: IngredientFormScreenProps) {
   const [name, setName] = useState("")
   const [unit, setUnit] = useState("")
   const [totalCost, setTotalCost] = useState("")
@@ -45,6 +52,26 @@ export function IngredientFormScreen({ onSave, onCancel, editingIngredient, load
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     setError(null)
+
+    const normalizedName = name.trim().toLowerCase()
+    const hasDuplicateName = existingIngredients.some((ingredient) => {
+      if (!ingredient.name) {
+        return false
+      }
+
+      if (editingIngredient && ingredient.id === editingIngredient.id) {
+        return false
+      }
+
+      return ingredient.name.trim().toLowerCase() === normalizedName
+    })
+
+    if (hasDuplicateName) {
+      const message = "Já existe um ingrediente com esse nome. Escolha outro para continuar."
+      setError(message)
+      toast.error(message)
+      return
+    }
 
     const parsedCost = Number.parseFloat(totalCost)
     const parsedAmount = Number.parseFloat(totalAmount)
@@ -73,11 +100,9 @@ export function IngredientFormScreen({ onSave, onCancel, editingIngredient, load
     setSubmitting(true)
     try {
       await onSave(payload)
-      toast.success(editingIngredient ? "Ingrediente atualizado" : "Ingrediente criado")
     } catch (err) {
       const message = err instanceof Error ? err.message : "Não foi possível salvar o ingrediente"
       setError(message)
-      toast.error(message)
     } finally {
       setSubmitting(false)
     }
