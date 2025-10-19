@@ -120,6 +120,7 @@ describe('OcrService', () => {
     expect(result.items[0].description).toBe('Pão Francês');
     expect(result.items[0].quantity).toBeCloseTo(0.485, 3);
     expect(result.items[0].total).toBeCloseTo(6.06, 2);
+    expect(result.items[0].issues).toBeUndefined();
     expect(result.receiptImageKey).toMatch(/ocr\//);
   });
 
@@ -134,6 +135,76 @@ describe('OcrService', () => {
 
     await expect(service.analyzeInvoice(createFile())).rejects.toBeInstanceOf(
       InternalServerErrorException,
+    );
+  });
+
+  it('adiciona issues quando dados detectados estão incompletos', async () => {
+    const config = new ConfigService({ TEXTRACT_USE_S3: 'false' });
+    const service = new OcrService(config);
+
+    textractSendMock.mockResolvedValue({
+      ExpenseDocuments: [
+        {
+          LineItemGroups: [
+            {
+              LineItems: [
+                {
+                  LineItemExpenseFields: [
+                    { Type: { Text: 'ITEM' }, ValueDetection: { Text: '   ' } },
+                    { Type: { Text: 'QUANTITY' }, ValueDetection: { Text: '0' }, Confidence: 40 },
+                    { Type: { Text: 'PRICE' }, ValueDetection: { Text: '' }, Confidence: 40 },
+                  ],
+                },
+                {
+                  LineItemExpenseFields: [
+                    { Type: { Text: 'ITEM' }, ValueDetection: { Text: 'Farinha' }, Confidence: 60 },
+                    { Type: { Text: 'QUANTITY' }, ValueDetection: { Text: '1' }, Confidence: 60 },
+                    { Type: { Text: 'PRICE' }, ValueDetection: { Text: '10,00' }, Confidence: 60 },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+
+    const result = await service.analyzeInvoice(createFile());
+
+    expect(result.items).toHaveLength(2);
+    expect(result.items[0].issues).toEqual(
+      expect.arrayContaining(['missing_description', 'missing_total', 'missing_quantity', 'low_confidence']),
+    );
+    expect(result.items[1].issues).toEqual(expect.arrayContaining(['low_confidence', 'missing_unit_price']));
+    expect(result.items[1].unitPrice).toBeCloseTo(10, 2);
+  });
+
+  it('acumula métricas e gera alertas quando há falhas frequentes', async () => {
+    const config = new ConfigService({ TEXTRACT_USE_S3: 'false' });
+    const service = new OcrService(config);
+
+    service.resetMetrics();
+    textractSendMock.mockResolvedValue({ ExpenseDocuments: [] });
+
+    await service.analyzeInvoice(createFile());
+
+    const initialMetrics = service.getMetrics();
+    expect(initialMetrics.totalAnalyses).toBe(1);
+    expect(initialMetrics.totalFailures).toBe(0);
+    expect(initialMetrics.averageDurationMs).toBeGreaterThanOrEqual(0);
+
+    for (let index = 0; index < 5; index += 1) {
+      await expect(service.analyzeInvoice(undefined)).rejects.toBeInstanceOf(BadRequestException);
+    }
+
+    const metrics = service.getMetrics();
+    expect(metrics.totalAnalyses).toBe(1);
+    expect(metrics.totalFailures).toBe(5);
+    expect(metrics.failureRate).toBeCloseTo(5 / 6, 3);
+    expect(metrics.alerts).toEqual(
+      expect.arrayContaining([
+        'Taxa de falhas >= 20%. Avalie credenciais, limites de tamanho e formato dos arquivos.',
+      ]),
     );
   });
 });

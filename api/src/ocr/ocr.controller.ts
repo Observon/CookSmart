@@ -1,5 +1,6 @@
 import {
   Controller,
+  Get,
   Post,
   UploadedFile as NestUploadedFile,
   UseGuards,
@@ -15,6 +16,7 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 
 import { AnalyzeInvoiceResponseDto } from './dto/analyze-invoice-response.dto';
+import { OcrMetricsResponseDto } from './dto/ocr-metrics-response.dto';
 import { OcrService } from './ocr.service';
 import type { OcrUploadedFile } from './ocr.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -45,5 +47,12 @@ export class OcrController {
   @UseInterceptors(FileInterceptor('file'))
   async analyzeInvoice(@NestUploadedFile() file: OcrUploadedFile): Promise<AnalyzeInvoiceResponseDto> {
     return this.ocrService.analyzeInvoice(file);
+  }
+
+  @Get('metrics')
+  @ApiOkResponse({ type: OcrMetricsResponseDto })
+  @UseGuards(JwtAuthGuard)
+  getMetrics(): OcrMetricsResponseDto {
+    return this.ocrService.getMetrics();
   }
 }

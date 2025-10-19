@@ -42,7 +42,7 @@ const roundTo = (value: number, decimals: number) => {
   return Math.round(value * factor) / factor;
 };
 
-const normalizePurchaseDate = (rawDate?: string | null) => {
+export const normalizePurchaseDate = (rawDate?: string | null) => {
   if (!rawDate) {
     return new Date().toISOString().slice(0, 10);
   }
@@ -245,10 +245,14 @@ export default function Home() {
 
       await Promise.all(
         normalizedUpdates.map((update) =>
-          updateIngredient(update.ingredientId, {
-            totalCost: update.newCost,
-            totalAmount: update.newAmount,
-          })
+          updateIngredient(
+            update.ingredientId,
+            {
+              totalCost: update.newCost,
+              totalAmount: update.newAmount,
+            },
+            { suppressToast: true }
+          )
         )
       );
 
@@ -375,6 +379,7 @@ export default function Home() {
           }}
           editingIngredient={editingIngredient}
           loading={ingredientsSaving}
+          existingIngredients={ingredients}
         />
       )}
 
@@ -414,6 +419,7 @@ export default function Home() {
           onDelete={() => setIngredientToDelete(editingIngredient.id)}
           editingIngredient={editingIngredient}
           loading={ingredientsSaving}
+          existingIngredients={ingredients}
         />
       )}
 

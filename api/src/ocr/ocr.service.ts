@@ -37,6 +37,10 @@ export class OcrService {
   private readonly useS3: boolean;
   private readonly bucket?: string;
   private readonly maxFileSizeBytes: number;
+  private totalAnalyses = 0;
+  private totalDurationMs = 0;
+  private totalFailures = 0;
+
   private readonly allowedMimeTypes = new Set([
     'image/png',
     'image/jpeg',
@@ -56,17 +60,22 @@ export class OcrService {
   }
 
   async analyzeInvoice(file: OcrUploadedFile | undefined): Promise<AnalyzeInvoiceResponseDto> {
+    const startTime = Date.now();
+
     if (!file) {
+      this.incrementFailures();
       throw new BadRequestException('Nenhum arquivo enviado');
     }
 
     if (file.size > this.maxFileSizeBytes) {
+      this.incrementFailures();
       throw new BadRequestException(
         `Arquivo excede o limite de ${(this.maxFileSizeBytes / (1024 * 1024)).toFixed(1)}MB`,
       );
     }
 
     if (!this.allowedMimeTypes.has(file.mimetype)) {
+      this.incrementFailures();
       throw new BadRequestException('Formato de arquivo não suportado. Use PNG, JPEG ou PDF.');
     }
 
@@ -81,14 +90,60 @@ export class OcrService {
       response = await this.textractClient.send(command);
     } catch (error) {
       this.logger.error('Erro ao processar arquivo no Textract', error as Error);
+      this.incrementFailures();
       throw new InternalServerErrorException('Não foi possível analisar o documento com o Textract');
     }
 
     const mapped = this.mapResponse(response);
+
+    const duration = Date.now() - startTime;
+    this.totalAnalyses += 1;
+    this.totalDurationMs += duration;
+    this.logger.log(`Análise OCR concluída em ${duration}ms`);
+
     return {
       ...mapped,
       receiptImageKey: receiptKey ?? mapped.receiptImageKey ?? null,
     };
+  }
+
+  getMetrics() {
+    const averageDurationMs = this.totalAnalyses ? this.totalDurationMs / this.totalAnalyses : 0;
+    const totalAttempts = this.totalAnalyses + this.totalFailures;
+    const failureRate = totalAttempts ? this.totalFailures / totalAttempts : 0;
+    const alerts = this.buildAlerts(averageDurationMs, failureRate, totalAttempts);
+
+    return {
+      totalAnalyses: this.totalAnalyses,
+      averageDurationMs,
+      totalFailures: this.totalFailures,
+      failureRate,
+      alerts,
+    };
+  }
+
+  resetMetrics() {
+    this.totalAnalyses = 0;
+    this.totalDurationMs = 0;
+    this.totalFailures = 0;
+  }
+
+  private incrementFailures() {
+    this.totalFailures += 1;
+  }
+
+  private buildAlerts(averageDurationMs: number, failureRate: number, totalAttempts: number) {
+    const alerts: string[] = [];
+
+    if (averageDurationMs > 5000 && this.totalAnalyses > 0) {
+      alerts.push('Tempo médio de análise acima de 5s. Verifique latência do Textract.');
+    }
+
+    if (failureRate >= 0.2 && totalAttempts >= 5) {
+      alerts.push('Taxa de falhas >= 20%. Avalie credenciais, limites de tamanho e formato dos arquivos.');
+    }
+
+    return alerts;
   }
 
   private async prepareDocument(file: OcrUploadedFile) {
@@ -111,6 +166,7 @@ export class OcrService {
         );
       } catch (error) {
         this.logger.error('Erro ao enviar arquivo para o S3', error as Error);
+        this.incrementFailures();
         throw new InternalServerErrorException('Falha ao armazenar o arquivo para processamento de OCR');
       }
 
@@ -138,6 +194,7 @@ export class OcrService {
       await fs.writeFile(filePath, file.buffer);
     } catch (error) {
       this.logger.error('Erro ao salvar arquivo localmente', error as Error);
+      this.incrementFailures();
       throw new InternalServerErrorException('Falha ao armazenar o arquivo localmente para OCR');
     }
 
@@ -159,8 +216,7 @@ export class OcrService {
 
     const items = (document.LineItemGroups ?? [])
       .flatMap((group) => group.LineItems ?? [])
-      .map((item) => this.mapLineItem(item))
-      .filter((item) => Boolean(item.description));
+      .map((item) => this.mapLineItem(item));
 
     return {
       supplierName: summaryField('VENDOR_NAME') ?? summaryField('SUPPLIER'),
@@ -196,16 +252,53 @@ export class OcrService {
         }
       });
 
+    const description = (descriptionField?.ValueDetection?.Text ?? '').trim();
+    const quantity = this.parseNumber(quantityField?.ValueDetection?.Text);
+    const total = this.parseNumber(priceField?.ValueDetection?.Text);
+    const unitPriceRaw = this.parseNumber(unitPriceField?.ValueDetection?.Text);
+
+    const confidence = confidences.length
+      ? confidences.reduce((sum, value) => sum + value, 0) / confidences.length / 100
+      : (descriptionField?.ValueDetection?.Confidence ?? 0) / 100;
+
+    const issues: string[] = [];
+
+    if (!description) {
+      issues.push('missing_description');
+    }
+
+    if (quantity === null || quantity <= 0) {
+      issues.push('missing_quantity');
+    }
+
+    if (total === null || total <= 0) {
+      issues.push('missing_total');
+    }
+
+    if (unitPriceRaw === null && total !== null && quantity !== null && quantity > 0) {
+      issues.push('missing_unit_price');
+    }
+
+    if (confidence < 0.7) {
+      issues.push('low_confidence');
+    }
+
+    const unitPrice =
+      unitPriceRaw !== null
+        ? unitPriceRaw
+        : total !== null && quantity && quantity > 0
+          ? total / quantity
+          : null;
+
     return {
-      description: descriptionField?.ValueDetection?.Text ?? '',
-      quantity: this.parseNumber(quantityField?.ValueDetection?.Text),
+      description,
+      quantity,
       unit: unitField?.ValueDetection?.Text ?? null,
-      unitPrice: this.parseNumber(unitPriceField?.ValueDetection?.Text),
-      total: this.parseNumber(priceField?.ValueDetection?.Text),
-      confidence: confidences.length
-        ? confidences.reduce((sum, value) => sum + value, 0) / confidences.length / 100
-        : (descriptionField?.ValueDetection?.Confidence ?? 0) / 100,
+      unitPrice,
+      total,
+      confidence,
       rawText: descriptionField?.ValueDetection?.Text ?? null,
+      issues: issues.length ? issues : undefined,
     };
   }
 

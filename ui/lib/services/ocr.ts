@@ -7,6 +7,7 @@ export interface OcrInvoiceItem {
   unitPrice?: number | null
   total?: number | null
   confidence?: number | null
+  issues?: string[]
 }
 
 export interface AnalyzeInvoiceResponse {
