@@ -247,6 +247,7 @@ Ambos dependem de `useAuth()` para obter o token JWT. Ao integrar novas telas, p
 - **Metadados & validação**: o serviço (`api/src/ocr/ocr.service.ts`) normaliza fornecedor, CNPJ, número e valor total. Cada item contém `issues[]` indicando inconsistências (`missing_description`, `missing_quantity`, `missing_total`, `missing_unit_price`, `low_confidence`, `unmatched_ingredient`).
 - **Revisão na UI**: `AiScannerScreen` exibe badges de atenção, impede seleção de itens sem ingrediente vinculado e destaca confiança. Itens sem correspondência podem ser vinculados manualmente antes de confirmar.
 - **Atualização de preços**: após a revisão, a UI vincula cada item válido e chama `/purchases` para registrar a compra. O serviço de compras (`api/src/purchases/purchases.service.ts`) cria `Purchase`/`PurchaseItem`, salva metadados e recalcula o custo dos ingredientes.
+- **Monitoramento**: o serviço expõe `GET /ocr/metrics` (autenticado) com totais, tempo médio, taxa de falhas e alertas (latência > 5s ou falhas ≥ 20%). Use-o para integrar com dashboards ou alarmes externos.
 - **Variáveis**: configure `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`, `TEXTRACT_BUCKET`, `TEXTRACT_USE_S3`, `TEXTRACT_MAX_FILE_SIZE_MB` e (opcional) `AWS_SESSION_TOKEN` em `api/.env`.
 - **Fluxo recomendado**:
   1. Inicie a API (`pnpm run start:dev`) e o frontend (`pnpm run dev`).

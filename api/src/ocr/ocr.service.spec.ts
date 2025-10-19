@@ -178,4 +178,33 @@ describe('OcrService', () => {
     expect(result.items[1].issues).toEqual(expect.arrayContaining(['low_confidence', 'missing_unit_price']));
     expect(result.items[1].unitPrice).toBeCloseTo(10, 2);
   });
+
+  it('acumula métricas e gera alertas quando há falhas frequentes', async () => {
+    const config = new ConfigService({ TEXTRACT_USE_S3: 'false' });
+    const service = new OcrService(config);
+
+    service.resetMetrics();
+    textractSendMock.mockResolvedValue({ ExpenseDocuments: [] });
+
+    await service.analyzeInvoice(createFile());
+
+    const initialMetrics = service.getMetrics();
+    expect(initialMetrics.totalAnalyses).toBe(1);
+    expect(initialMetrics.totalFailures).toBe(0);
+    expect(initialMetrics.averageDurationMs).toBeGreaterThanOrEqual(0);
+
+    for (let index = 0; index < 5; index += 1) {
+      await expect(service.analyzeInvoice(undefined)).rejects.toBeInstanceOf(BadRequestException);
+    }
+
+    const metrics = service.getMetrics();
+    expect(metrics.totalAnalyses).toBe(1);
+    expect(metrics.totalFailures).toBe(5);
+    expect(metrics.failureRate).toBeCloseTo(5 / 6, 3);
+    expect(metrics.alerts).toEqual(
+      expect.arrayContaining([
+        'Taxa de falhas >= 20%. Avalie credenciais, limites de tamanho e formato dos arquivos.',
+      ]),
+    );
+  });
 });
