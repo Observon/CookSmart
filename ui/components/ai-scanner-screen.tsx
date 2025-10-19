@@ -196,6 +196,7 @@ export function AiScannerScreen({ ingredients, onBack, onUpdatePrices }: AiScann
         }
 
         const total = resolveValue(item.total, item.unitPrice, quantityForMatched)
+        const hasIssues = issues.length > 0
 
         normalizedItems.push({
           ingredientId: ingredientMatch.id,
@@ -205,9 +206,9 @@ export function AiScannerScreen({ ingredients, onBack, onUpdatePrices }: AiScann
           newAmount: quantityForMatched,
           unit: item.unit ?? ingredientMatch.unitOfMeasure ?? "",
           confidence: item.confidence ?? 0,
-          selected: false,
+          selected: !hasIssues,
           autoMatched: true,
-          issues: issues.length ? issues : undefined,
+          issues: hasIssues ? issues : undefined,
         })
       }
 
