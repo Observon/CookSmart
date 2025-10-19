@@ -220,10 +220,14 @@ export default function Home() {
 
       await Promise.all(
         normalizedUpdates.map((update) =>
-          updateIngredient(update.ingredientId, {
-            totalCost: update.newCost,
-            totalAmount: update.newAmount,
-          })
+          updateIngredient(
+            update.ingredientId,
+            {
+              totalCost: update.newCost,
+              totalAmount: update.newAmount,
+            },
+            { suppressToast: true }
+          )
         )
       );
 
