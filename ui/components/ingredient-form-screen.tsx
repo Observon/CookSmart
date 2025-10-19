@@ -171,7 +171,7 @@ export function IngredientFormScreen({ onSave, onCancel, editingIngredient, load
               <Input
                 id="total-amount"
                 type="number"
-                step="0.01"
+                step="0.0001"
                 min="0"
                 placeholder="0"
                 value={totalAmount}

@@ -78,5 +78,10 @@ export interface PurchaseItemPayload {
 export interface CreatePurchasePayload {
   purchaseDate: string
   supplier?: string
+  receiptImage?: string
+  invoiceNumber?: string
+  supplierTaxId?: string
+  currency?: string
+  totalAmount?: number
   items: PurchaseItemPayload[]
 }
