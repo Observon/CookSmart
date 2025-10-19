@@ -1,93 +1,95 @@
-"use client"
+"use client";
 
-import { useEffect, useState } from "react"
+import { useEffect, useState } from "react";
 
-import { Button } from "@/components/ui/button"
-import { Card } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import type { CreateIngredientPayload, Ingredient, UpdateIngredientPayload } from "@/lib/types"
-import { ArrowLeft } from "lucide-react"
-import { toast } from "sonner"
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import type { CreateIngredientPayload, Ingredient, UpdateIngredientPayload } from "@/lib/types";
+import { ArrowLeft, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 
 interface IngredientFormScreenProps {
-  onSave: (ingredient: CreateIngredientPayload | UpdateIngredientPayload) => Promise<void>
-  onCancel: () => void
-  editingIngredient?: Ingredient | null
-  loading?: boolean
-  existingIngredients?: Ingredient[]
+  onSave: (ingredient: CreateIngredientPayload | UpdateIngredientPayload) => Promise<void>;
+  onCancel: () => void;
+  onDelete?: () => void;
+  editingIngredient?: Ingredient | null;
+  loading?: boolean;
+  existingIngredients?: Ingredient[];
 }
 
-const UNITS = ["kg", "g", "L", "ml", "unidade", "dúzia", "xícara", "colher (sopa)", "colher (chá)"]
+const UNITS = ["kg", "g", "L", "ml", "unidade", "dúzia", "xícara", "colher (sopa)", "colher (chá)"];
 
 export function IngredientFormScreen({
   onSave,
   onCancel,
+  onDelete,
   editingIngredient,
   loading,
   existingIngredients = [],
 }: IngredientFormScreenProps) {
-  const [name, setName] = useState("")
-  const [unit, setUnit] = useState("")
-  const [totalCost, setTotalCost] = useState("")
-  const [totalAmount, setTotalAmount] = useState("")
-  const [submitting, setSubmitting] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [name, setName] = useState("");
+  const [unit, setUnit] = useState("");
+  const [totalCost, setTotalCost] = useState("");
+  const [totalAmount, setTotalAmount] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const resolvedUnit = unit || editingIngredient?.unitOfMeasure || ""
+  const resolvedUnit = unit || editingIngredient?.unitOfMeasure || "";
 
   useEffect(() => {
     if (editingIngredient) {
-      setName(editingIngredient.name)
-      setUnit(editingIngredient.unitOfMeasure)
-      setTotalCost(editingIngredient.totalCost.toString())
-      setTotalAmount(editingIngredient.totalAmount.toString())
+      setName(editingIngredient.name);
+      setUnit(editingIngredient.unitOfMeasure);
+      setTotalCost(editingIngredient.totalCost.toString());
+      setTotalAmount(editingIngredient.totalAmount.toString());
     } else {
-      setName("")
-      setUnit("")
-      setTotalCost("")
-      setTotalAmount("")
+      setName("");
+      setUnit("");
+      setTotalCost("");
+      setTotalAmount("");
     }
-  }, [editingIngredient])
+  }, [editingIngredient]);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
-    setError(null)
+    event.preventDefault();
+    setError(null);
 
-    const normalizedName = name.trim().toLowerCase()
+    const normalizedName = name.trim().toLowerCase();
     const hasDuplicateName = existingIngredients.some((ingredient) => {
       if (!ingredient.name) {
-        return false
+        return false;
       }
 
       if (editingIngredient && ingredient.id === editingIngredient.id) {
-        return false
+        return false;
       }
 
-      return ingredient.name.trim().toLowerCase() === normalizedName
-    })
+      return ingredient.name.trim().toLowerCase() === normalizedName;
+    });
 
     if (hasDuplicateName) {
-      const message = "Já existe um ingrediente com esse nome. Escolha outro para continuar."
-      setError(message)
-      toast.error(message)
-      return
+      const message = "Já existe um ingrediente com esse nome. Escolha outro para continuar.";
+      setError(message);
+      toast.error(message);
+      return;
     }
 
     if (!resolvedUnit) {
-      const message = "Selecione uma unidade de medida para continuar."
-      setError(message)
-      toast.error(message)
-      return
+      const message = "Selecione uma unidade de medida para continuar.";
+      setError(message);
+      toast.error(message);
+      return;
     }
 
-    const parsedCost = Number.parseFloat(totalCost)
-    const parsedAmount = Number.parseFloat(totalAmount)
+    const parsedCost = Number.parseFloat(totalCost);
+    const parsedAmount = Number.parseFloat(totalAmount);
 
     if (!Number.isFinite(parsedCost) || parsedCost <= 0 || !Number.isFinite(parsedAmount) || parsedAmount <= 0) {
-      setError("Informe valores válidos para custo e quantidade")
-      return
+      setError("Informe valores válidos para custo e quantidade");
+      return;
     }
 
     const payload: CreateIngredientPayload | UpdateIngredientPayload = editingIngredient
@@ -104,44 +106,58 @@ export function IngredientFormScreen({
           unitOfMeasure: resolvedUnit,
           totalCost: parsedCost,
           totalAmount: parsedAmount,
-        }
+        };
 
-    setSubmitting(true)
+    setSubmitting(true);
     try {
-      await onSave(payload)
+      await onSave(payload);
+      toast.success(editingIngredient ? "Ingrediente atualizado" : "Ingrediente criado");
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Não foi possível salvar o ingrediente"
-      setError(message)
+      const message = err instanceof Error ? err.message : "Não foi possível salvar o ingrediente";
+      setError(message);
+      toast.error(message);
     } finally {
-      setSubmitting(false)
+      setSubmitting(false);
     }
-  }
+  };
 
   const costPerUnit = (() => {
-    const parsedCost = Number.parseFloat(totalCost)
-    const parsedAmount = Number.parseFloat(totalAmount)
+    const parsedCost = Number.parseFloat(totalCost);
+    const parsedAmount = Number.parseFloat(totalAmount);
 
     if (!Number.isFinite(parsedCost) || !Number.isFinite(parsedAmount) || parsedAmount <= 0) {
-      return "0.00"
+      return "0.00";
     }
 
-    return (parsedCost / parsedAmount).toFixed(2)
-  })()
+    return (parsedCost / parsedAmount).toFixed(2);
+  })();
 
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
       <div className="bg-primary text-primary-foreground px-6 py-6 rounded-b-3xl shadow-lg">
-        <div className="flex items-center gap-3 mb-2">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={onCancel}
-            className="text-primary-foreground hover:bg-primary-foreground/20"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </Button>
-          <h1 className="text-2xl font-bold">{editingIngredient ? "Editar Ingrediente" : "Novo Ingrediente"}</h1>
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-3">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onCancel}
+              className="text-primary-foreground hover:bg-primary-foreground/20"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </Button>
+            <h1 className="text-2xl font-bold">{editingIngredient ? "Editar Ingrediente" : "Novo Ingrediente"}</h1>
+          </div>
+          {editingIngredient && onDelete && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onDelete}
+              className="text-destructive hover:bg-destructive/10"
+            >
+              <Trash2 className="w-5 h-5" />
+            </Button>
+          )}
         </div>
       </div>
 
@@ -246,13 +262,9 @@ export function IngredientFormScreen({
           className="w-full h-12 text-base font-semibold bg-primary hover:bg-primary/90 text-primary-foreground"
           disabled={submitting || loading}
         >
-          {submitting || loading
-            ? "Salvando..."
-            : editingIngredient
-              ? "Atualizar Ingrediente"
-              : "Salvar Ingrediente"}
+          {submitting || loading ? "Salvando..." : editingIngredient ? "Atualizar Ingrediente" : "Salvar Ingrediente"}
         </Button>
       </form>
     </div>
-  )
+  );
 }
