@@ -22,7 +22,7 @@ Backend em NestJS responsável por autenticação, cadastro de insumos, receitas
 - **Prisma**
   ```bash
   pnpm prisma:format
-  pnpm prisma:migrate --name init
+  pnpm prisma migrate dev
   pnpm prisma:generate
   ```
 
@@ -84,27 +84,19 @@ curl -X POST http://localhost:3000/ocr/textract \
 - **Nova migração**: `pnpm prisma:migrate --name <titulo>`
 - **Studio (GUI)**: `pnpm prisma studio`
 
-### Próximos passos
+### Testes
 
-- Implementar módulos `auth`, `ingredients`, `recipes`, `purchases`, `operational-expenses` com controllers/services usando `PrismaService`.
-- Adicionar testes unitários e e2e com Jest/Supertest.
-- Configurar Docker Compose (API + PostgreSQL) e pipelines de CI/CD.
-- Expor endpoints REST/GraphQL para consumo pelo frontend (`ui/`).
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+- `pnpm run test` executa a suíte unitária com Jest.
+- `pnpm run test:e2e` roda testes end-to-end usando Supertest.
+- `pnpm run test:cov` gera relatório de cobertura.
 
-## Support
+### Documentação da API
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+- Swagger disponível em `http://localhost:3000/docs` após iniciar o servidor (`pnpm run start:dev`).
+- Principais módulos já implementados: `auth`, `ingredients`, `recipes`, `purchases`, `operational-expenses`, `ocr` e `prisma`.
 
-## Stay in touch
+### Roadmap
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
-
-## License
-
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+- **Dashboard de métricas**: endpoints agregados para consumo pelo frontend.
+- **Integração com notificações**: alertas de OCR e variação de custos.
+- **Pipelines CI/CD**: automação de testes e deploy.

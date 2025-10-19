@@ -153,6 +153,8 @@ pnpm run test:cov      # Cobertura de testes
 ```bash
 cd ui
 pnpm run lint          # Linting
+pnpm run test          # Testes unitários com Vitest
+pnpm run test:watch    # Modo watch para desenvolvimento
 ```
 
 ## 🗄 Scripts Úteis
