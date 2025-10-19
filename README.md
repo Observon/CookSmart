@@ -254,6 +254,63 @@ Ambos dependem de `useAuth()` para obter o token JWT. Ao integrar novas telas, p
   2. Acesse a lista de ingredientes, clique em **Escanear Nota Fiscal** e envie o arquivo.
   3. Revise as badges, vincule itens pendentes e confirme; os preços e a compra são salvos automaticamente.
 
+### Configuração S3 Local
+
+- **LocalStack**:
+  1. Suba o serviço (`docker run -p 4566:4566 localstack/localstack`).
+  2. Configure o endpoint no `.env` da API:
+
+     ```env
+     TEXTRACT_USE_S3="true"
+     AWS_REGION="us-east-1"
+     AWS_ACCESS_KEY_ID="test"
+     AWS_SECRET_ACCESS_KEY="test"
+     AWS_ENDPOINT_URL="http://localhost:4566"
+     TEXTRACT_BUCKET="cooksmart-ocr-local"
+     ````
+
+  3. Crie o bucket: `awslocal s3 mb s3://cooksmart-ocr-local`.
+- **MinIO**: utilize `docker run -p 9000:9000 -p 9090:9090 quay.io/minio/minio server /data` e mapeie `AWS_ENDPOINT_URL="http://localhost:9000"` (exige `TEXTRACT_USE_S3="true"`). Ajuste `AWS_REGION` para o valor esperado pelo MinIO.
+
+> **Nota**: quando `AWS_ENDPOINT_URL` estiver definido, o SDK usará o endpoint customizado para operações S3, mantendo o Textract na AWS real.
+
+### Políticas IAM Recomendadas
+
+Crie uma role/usuário com a política mínima abaixo (substitua `<bucket-name>`):
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": ["textract:AnalyzeExpense"],
+      "Resource": "*"
+    },
+    {
+      "Effect": "Allow",
+      "Action": ["s3:PutObject", "s3:GetObject", "s3:DeleteObject"],
+      "Resource": "arn:aws:s3:::<bucket-name>/*"
+    },
+    {
+      "Effect": "Allow",
+      "Action": ["s3:ListBucket"],
+      "Resource": "arn:aws:s3:::<bucket-name>"
+    }
+  ]
+}
+```
+
+Mantenha chaves separadas para ambientes (produção, staging) e habilite MFA em usuários humanos.
+
+### Fluxo OCR (Capturas de Tela)
+
+- **Upload da nota**: `docs/screenshots/ocr-upload.png`.
+- **Revisão e vinculação**: `docs/screenshots/ocr-review.png`.
+- **Confirmação e alertas**: `docs/screenshots/ocr-confirm.png`.
+
+> Salve as imagens no diretório `docs/screenshots/` para que os links acima sejam renderizados automaticamente no GitHub.
+
 Exemplo de requisição manual (necessário token JWT válido):
 
 ```bash
