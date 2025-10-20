@@ -117,6 +117,9 @@ importers:
       prettier:
         specifier: ^3.4.2
         version: 3.6.2
+      prisma:
+        specifier: ^6.16.3
+        version: 6.16.3(typescript@5.9.3)
       source-map-support:
         specifier: ^0.5.21
         version: 0.5.21
@@ -7573,13 +7576,10 @@ snapshots:
       empathic: 2.0.0
     transitivePeerDependencies:
       - magicast
-    optional: true
 
-  '@prisma/debug@6.16.3':
-    optional: true
+  '@prisma/debug@6.16.3': {}
 
-  '@prisma/engines-version@6.16.1-1.bb420e667c1820a8c05a38023385f6cc7ef8e83a':
-    optional: true
+  '@prisma/engines-version@6.16.1-1.bb420e667c1820a8c05a38023385f6cc7ef8e83a': {}
 
   '@prisma/engines@6.16.3':
     dependencies:
@@ -7587,19 +7587,16 @@ snapshots:
       '@prisma/engines-version': 6.16.1-1.bb420e667c1820a8c05a38023385f6cc7ef8e83a
       '@prisma/fetch-engine': 6.16.3
       '@prisma/get-platform': 6.16.3
-    optional: true
 
   '@prisma/fetch-engine@6.16.3':
     dependencies:
       '@prisma/debug': 6.16.3
       '@prisma/engines-version': 6.16.1-1.bb420e667c1820a8c05a38023385f6cc7ef8e83a
       '@prisma/get-platform': 6.16.3
-    optional: true
 
   '@prisma/get-platform@6.16.3':
     dependencies:
       '@prisma/debug': 6.16.3
-    optional: true
 
   '@radix-ui/number@1.1.0': {}
 
@@ -8756,8 +8753,7 @@ snapshots:
     dependencies:
       tslib: 2.8.1
 
-  '@standard-schema/spec@1.0.0':
-    optional: true
+  '@standard-schema/spec@1.0.0': {}
 
   '@swc/counter@0.1.3': {}
 
@@ -9613,7 +9609,6 @@ snapshots:
       perfect-debounce: 1.0.0
       pkg-types: 2.3.0
       rc9: 2.1.2
-    optional: true
 
   cac@6.7.14: {}
 
@@ -9667,7 +9662,6 @@ snapshots:
   citty@0.1.6:
     dependencies:
       consola: 3.4.2
-    optional: true
 
   cjs-module-lexer@2.1.0: {}
 
@@ -9756,8 +9750,7 @@ snapshots:
       readable-stream: 3.6.2
       typedarray: 0.0.6
 
-  confbox@0.2.2:
-    optional: true
+  confbox@0.2.2: {}
 
   consola@3.4.2: {}
 
@@ -9869,8 +9862,7 @@ snapshots:
 
   deep-is@0.1.4: {}
 
-  deepmerge-ts@7.1.5:
-    optional: true
+  deepmerge-ts@7.1.5: {}
 
   deepmerge@4.3.1: {}
 
@@ -9878,8 +9870,7 @@ snapshots:
     dependencies:
       clone: 1.0.4
 
-  defu@6.1.4:
-    optional: true
+  defu@6.1.4: {}
 
   delayed-stream@1.0.0: {}
 
@@ -9887,8 +9878,7 @@ snapshots:
 
   dequal@2.0.3: {}
 
-  destr@2.0.5:
-    optional: true
+  destr@2.0.5: {}
 
   detect-libc@2.1.2: {}
 
@@ -9938,7 +9928,6 @@ snapshots:
     dependencies:
       '@standard-schema/spec': 1.0.0
       fast-check: 3.23.2
-    optional: true
 
   electron-to-chromium@1.5.230: {}
 
@@ -9960,8 +9949,7 @@ snapshots:
 
   emoji-regex@9.2.2: {}
 
-  empathic@2.0.0:
-    optional: true
+  empathic@2.0.0: {}
 
   encodeurl@2.0.0: {}
 
@@ -10186,13 +10174,11 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  exsolve@1.0.7:
-    optional: true
+  exsolve@1.0.7: {}
 
   fast-check@3.23.2:
     dependencies:
       pure-rand: 6.1.0
-    optional: true
 
   fast-deep-equal@3.1.3: {}
 
@@ -10372,7 +10358,6 @@ snapshots:
       node-fetch-native: 1.6.7
       nypm: 0.6.2
       pathe: 2.0.3
-    optional: true
 
   glob-parent@5.1.2:
     dependencies:
@@ -11250,8 +11235,7 @@ snapshots:
     dependencies:
       lodash: 4.17.21
 
-  node-fetch-native@1.6.7:
-    optional: true
+  node-fetch-native@1.6.7: {}
 
   node-int64@0.4.0: {}
 
@@ -11274,14 +11258,12 @@ snapshots:
       pathe: 2.0.3
       pkg-types: 2.3.0
       tinyexec: 1.0.1
-    optional: true
 
   object-assign@4.1.1: {}
 
   object-inspect@1.13.4: {}
 
-  ohash@2.0.11:
-    optional: true
+  ohash@2.0.11: {}
 
   on-finished@2.4.1:
     dependencies:
@@ -11392,15 +11374,13 @@ snapshots:
 
   pathe@1.1.2: {}
 
-  pathe@2.0.3:
-    optional: true
+  pathe@2.0.3: {}
 
   pathval@2.0.1: {}
 
   pause@0.0.1: {}
 
-  perfect-debounce@1.0.0:
-    optional: true
+  perfect-debounce@1.0.0: {}
 
   picocolors@1.1.1: {}
 
@@ -11421,7 +11401,6 @@ snapshots:
       confbox: 0.2.2
       exsolve: 1.0.7
       pathe: 2.0.3
-    optional: true
 
   pluralize@8.0.0: {}
 
@@ -11467,7 +11446,6 @@ snapshots:
       typescript: 5.9.3
     transitivePeerDependencies:
       - magicast
-    optional: true
 
   prop-types@15.8.1:
     dependencies:
@@ -11486,8 +11464,7 @@ snapshots:
 
   punycode@2.3.1: {}
 
-  pure-rand@6.1.0:
-    optional: true
+  pure-rand@6.1.0: {}
 
   pure-rand@7.0.1: {}
 
@@ -11516,7 +11493,6 @@ snapshots:
     dependencies:
       defu: 6.1.4
       destr: 2.0.5
-    optional: true
 
   react-day-picker@9.8.0(react@18.3.1):
     dependencies:
@@ -11996,8 +11972,7 @@ snapshots:
 
   tinyexec@0.3.2: {}
 
-  tinyexec@1.0.1:
-    optional: true
+  tinyexec@1.0.1: {}
 
   tinypool@1.1.1: {}
 
