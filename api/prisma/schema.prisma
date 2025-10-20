@@ -79,6 +79,10 @@ model Purchase {
   purchaseDate DateTime       @map("purchase_date") @db.Date
   supplier     String?        @db.VarChar(100)
   receiptImage String?        @map("receipt_image") @db.VarChar(255)
+  invoiceNumber String?       @map("invoice_number") @db.VarChar(50)
+  supplierTaxId String?       @map("supplier_tax_id") @db.VarChar(32)
+  currency     String?        @db.VarChar(10)
+  totalAmount  Decimal?       @map("total_amount") @db.Decimal(10, 2)
   user         User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   items        PurchaseItem[]
 

@@ -42,7 +42,7 @@ export class CreateIngredientDto {
   totalCost: number;
 
   @ApiProperty({ description: 'Quantidade total adquirida', example: 2.5 })
-  @IsNumber({ maxDecimalPlaces: 2 })
+  @IsNumber({ maxDecimalPlaces: 4 })
   @IsPositive()
   totalAmount: number;
 }
