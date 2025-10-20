@@ -10,6 +10,9 @@ export const metadata: Metadata = {
   title: 'CookSmart',
   description: 'Created with v0',
   generator: 'v0.app',
+  icons: {
+    icon: '/favicon.ico',
+  },
 }
 
 export default function RootLayout({
