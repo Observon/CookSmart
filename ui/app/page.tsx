@@ -28,8 +28,49 @@ import type {
   Recipe,
   UpdateIngredientPayload,
   UpdateRecipePayload,
+  CreatePurchasePayload,
 } from "@/lib/types";
+
+import { createPurchase } from "@/lib/services/purchases";
 import { toast } from "sonner";
+
+const roundTo = (value: number, decimals: number) => {
+  if (!Number.isFinite(value)) {
+    return 0;
+  }
+  const factor = 10 ** decimals;
+  return Math.round(value * factor) / factor;
+};
+
+export const normalizePurchaseDate = (rawDate?: string | null) => {
+  if (!rawDate) {
+    return new Date().toISOString().slice(0, 10);
+  }
+
+  const trimmed = rawDate.trim();
+  if (!trimmed) {
+    return new Date().toISOString().slice(0, 10);
+  }
+
+  const isoMatch = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (isoMatch) {
+    const [, year, month, day] = isoMatch;
+    return `${year}-${month}-${day}`;
+  }
+
+  const brMatch = trimmed.match(/^(\d{2})[\/\-](\d{2})[\/\-](\d{4})$/);
+  if (brMatch) {
+    const [, day, month, year] = brMatch;
+    return `${year}-${month}-${day}`;
+  }
+
+  const parsed = new Date(trimmed);
+  if (!Number.isNaN(parsed.getTime())) {
+    return parsed.toISOString().slice(0, 10);
+  }
+
+  return new Date().toISOString().slice(0, 10);
+};
 
 export default function Home() {
   const { token, user, logout, loading: authLoading, initializing } = useAuth();
@@ -156,7 +197,6 @@ export default function Home() {
       }
       setCurrentScreen("list");
       setRecipeToDelete(null);
-      toast.success("Receita excluída com sucesso");
     } catch (error) {
       const message = error instanceof Error 
         ? error.message 
@@ -171,18 +211,81 @@ export default function Home() {
     setCurrentScreen("recipe-detail");
   };
 
-  const handleUpdateIngredientPrices = (
-    updates: Array<{ ingredientId: number; newCost: number; newAmount: number }>
-  ) => {
-    void Promise.all(
-      updates.map((update) =>
-        updateIngredient(update.ingredientId, {
-          totalCost: update.newCost,
-          totalAmount: update.newAmount,
-        })
-      )
-    );
-    setCurrentScreen("ingredients-list");
+  const handleUpdateIngredientPrices = async ({
+    updates,
+    supplierName,
+    supplierTaxId,
+    invoiceNumber,
+    issueDate,
+    currency,
+    totalAmount,
+    receiptImageKey,
+  }: {
+    updates: Array<{ ingredientId: number; newCost: number; newAmount: number }>;
+    supplierName?: string | null;
+    supplierTaxId?: string | null;
+    invoiceNumber?: string | null;
+    issueDate?: string | null;
+    currency?: string | null;
+    totalAmount?: number | null;
+    receiptImageKey?: string | null;
+  }) => {
+    if (!token) {
+      toast.error("Sessão expirada. Entre novamente para atualizar os preços.");
+      return;
+    }
+
+    try {
+      const normalizedUpdates = updates.map((update) => ({
+        ingredientId: update.ingredientId,
+        newCost: roundTo(update.newCost, 2),
+        newAmount: roundTo(update.newAmount, 4),
+      }));
+
+      await Promise.all(
+        normalizedUpdates.map((update) =>
+          updateIngredient(
+            update.ingredientId,
+            {
+              totalCost: update.newCost,
+              totalAmount: update.newAmount,
+            },
+            { suppressToast: true }
+          )
+        )
+      );
+
+      const fallbackTotal = normalizedUpdates.reduce((acc, item) => acc + item.newCost, 0);
+      const normalizedTotalAmount =
+        typeof totalAmount === "number" && Number.isFinite(totalAmount)
+          ? totalAmount
+          : fallbackTotal;
+
+      const purchasePayload: CreatePurchasePayload = {
+        purchaseDate: normalizePurchaseDate(issueDate),
+        supplier: supplierName ?? undefined,
+        supplierTaxId: supplierTaxId ?? undefined,
+        invoiceNumber: invoiceNumber ?? undefined,
+        currency: currency ?? undefined,
+        totalAmount: Number.isFinite(normalizedTotalAmount) ? Number(normalizedTotalAmount.toFixed(2)) : undefined,
+        receiptImage: receiptImageKey ?? undefined,
+        items: normalizedUpdates.map((item) => ({
+          ingredientId: item.ingredientId,
+          quantity: item.newAmount,
+          totalPrice: item.newCost,
+        })),
+      };
+
+      await createPurchase(token, purchasePayload);
+      toast.success("Preços e compra registrados com sucesso");
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Não foi possível atualizar os preços a partir da nota fiscal";
+      toast.error(message);
+      throw error;
+    } finally {
+      setCurrentScreen("ingredients-list");
+    }
   };
 
   const handleDeleteIngredient = async (ingredientId: number) => {
@@ -191,7 +294,6 @@ export default function Home() {
       setEditingIngredientId(null);
       setCurrentScreen("ingredients-list");
       setIngredientToDelete(null);
-      toast.success("Ingrediente excluído com sucesso");
     } catch (error) {
       const message = error instanceof Error 
         ? error.message 
@@ -275,6 +377,7 @@ export default function Home() {
           }}
           editingIngredient={editingIngredient}
           loading={ingredientsSaving}
+          existingIngredients={ingredients}
         />
       )}
 
@@ -314,6 +417,7 @@ export default function Home() {
           onDelete={() => setIngredientToDelete(editingIngredient.id)}
           editingIngredient={editingIngredient}
           loading={ingredientsSaving}
+          existingIngredients={ingredients}
         />
       )}
 

@@ -6,6 +6,10 @@ import { toast } from "sonner"
 
 type UpdatePayload = Partial<Omit<UpdateIngredientPayload, "id">>
 
+interface UpdateOptions {
+  suppressToast?: boolean
+}
+
 export function useIngredients() {
   const { token } = useAuth()
   const [ingredients, setIngredients] = useState<Ingredient[]>([])
@@ -62,7 +66,9 @@ export function useIngredients() {
   )
 
   const handleUpdate = useCallback(
-    async (id: number, payload: UpdatePayload) => {
+    async (id: number, payload: UpdatePayload, options: UpdateOptions = {}) => {
+      const { suppressToast = false } = options
+
       if (!token) {
         return
       }
@@ -71,11 +77,15 @@ export function useIngredients() {
       try {
         const updated = await updateIngredient(token, id, payload)
         setIngredients((prev) => prev.map((ingredient) => (ingredient.id === updated.id ? updated : ingredient)))
-        toast.success("Ingrediente atualizado")
+        if (!suppressToast) {
+          toast.success("Ingrediente atualizado")
+        }
         return updated
       } catch (err) {
         const message = err instanceof Error ? err.message : "Não foi possível atualizar o ingrediente"
-        toast.error(message)
+        if (!suppressToast) {
+          toast.error(message)
+        }
         throw err
       } finally {
         setSaving(false)

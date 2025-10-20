@@ -5,6 +5,7 @@ import {
   IsArray,
   IsDateString,
   IsNotEmpty,
+  IsNumber,
   IsOptional,
   IsString,
   ValidateNested,
@@ -25,6 +26,35 @@ export class CreatePurchaseDto {
   @IsString()
   @IsNotEmpty()
   supplier?: string;
+
+  @ApiPropertyOptional({ description: 'URL ou caminho da imagem do comprovante' })
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  receiptImage?: string;
+
+  @ApiPropertyOptional({ description: 'Número da nota fiscal associado à compra' })
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  invoiceNumber?: string;
+
+  @ApiPropertyOptional({ description: 'Documento fiscal/CNPJ do fornecedor' })
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  supplierTaxId?: string;
+
+  @ApiPropertyOptional({ description: 'Moeda utilizada na nota fiscal', example: 'BRL' })
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  currency?: string;
+
+  @ApiPropertyOptional({ description: 'Valor total registrado na nota fiscal', type: Number })
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 2 })
+  totalAmount?: number;
 
   @ApiProperty({
     description: 'Itens incluídos na compra',
