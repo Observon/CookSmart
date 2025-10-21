@@ -111,7 +111,6 @@ export function IngredientFormScreen({
     setSubmitting(true);
     try {
       await onSave(payload);
-      toast.success(editingIngredient ? "Ingrediente atualizado" : "Ingrediente criado");
     } catch (err) {
       const message = err instanceof Error ? err.message : "Não foi possível salvar o ingrediente";
       setError(message);
