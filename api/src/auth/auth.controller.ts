@@ -11,6 +11,7 @@ import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { AuthResponseDto } from './dto/auth-response.dto';
 import { RequestPasswordResetDto } from './dto/request-password-reset.dto';
+import { CompleteResetPasswordDto } from './dto/complete-reset-password.dto';
 
 @ApiTags('auth')
 @Controller('auth')
@@ -41,5 +42,12 @@ export class AuthController {
   @ApiNoContentResponse({ description: 'Solicitação enviada caso o email exista' })
   async forgotPassword(@Body() data: RequestPasswordResetDto): Promise<void> {
     await this.authService.requestPasswordReset(data.email);
+  }
+
+  @Post('reset-password/complete')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiNoContentResponse({ description: 'Senha redefinida com sucesso' })
+  async completeReset(@Body() data: CompleteResetPasswordDto): Promise<void> {
+    await this.authService.completePasswordReset(data.accessToken, data.newPassword);
   }
 }

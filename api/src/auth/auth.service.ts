@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   InternalServerErrorException,
@@ -76,6 +77,28 @@ export class AuthService {
     if (error) {
       throw new InternalServerErrorException(error.message);
     }
+  }
+
+  async completePasswordReset(accessToken: string, newPassword: string): Promise<void> {
+    const supabase = this.getSupabaseAdminClient();
+    const { data, error } = await supabase.auth.getUser(accessToken);
+
+    if (error || !data?.user?.email) {
+      throw new BadRequestException('Token inválido ou expirado');
+    }
+
+    const user = await this.prisma.user.findUnique({ where: { email: data.user.email } });
+
+    if (!user) {
+      return;
+    }
+
+    const passwordHash = await this.hashPassword(newPassword);
+
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: { passwordHash },
+    });
   }
 
   private async hashPassword(password: string): Promise<string> {

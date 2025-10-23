@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card } from "@/components/ui/card"
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser"
+import { apiFetch } from "@/lib/http"
 import { toast } from "sonner"
 
 export default function ResetPasswordPage() {
@@ -19,22 +20,49 @@ export default function ResetPasswordPage() {
   const [confirmPassword, setConfirmPassword] = useState("")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-
-  const accessToken = searchParams.get("access_token")
-  const refreshToken = searchParams.get("refresh_token")
-  const type = searchParams.get("type")
+  const [accessToken, setAccessToken] = useState<string | null>(null)
+  const [refreshToken, setRefreshToken] = useState<string | null>(null)
+  const [flowType, setFlowType] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!accessToken || !refreshToken || type !== "recovery") {
-      setError(
-        "Link inválido ou expirado. Solicite uma nova redefinição de senha."
-      )
+    const fromSearchAccess = searchParams.get("access_token")
+    const fromSearchRefresh = searchParams.get("refresh_token")
+    const fromSearchType = searchParams.get("type")
+
+    let hashAccess: string | null = null
+    let hashRefresh: string | null = null
+    let hashType: string | null = null
+
+    if (typeof window !== "undefined") {
+      const hash = window.location.hash.startsWith("#")
+        ? window.location.hash.slice(1)
+        : window.location.hash
+      if (hash) {
+        const hashParams = new URLSearchParams(hash)
+        hashAccess = hashParams.get("access_token")
+        hashRefresh = hashParams.get("refresh_token")
+        hashType = hashParams.get("type")
+      }
     }
-  }, [accessToken, refreshToken, type])
+
+    const finalAccess = fromSearchAccess ?? hashAccess
+    const finalRefresh = fromSearchRefresh ?? hashRefresh
+    const finalType = fromSearchType ?? hashType
+
+    setAccessToken(finalAccess)
+    setRefreshToken(finalRefresh)
+    setFlowType(finalType)
+
+    if (!finalAccess || !finalRefresh || finalType !== "recovery") {
+      setError("Link inválido ou expirado. Solicite uma nova redefinição de senha.")
+    } else {
+      setError(null)
+    }
+  }, [searchParams])
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault()
-    if (!accessToken || !refreshToken) {
+    if (!accessToken || !refreshToken || flowType !== "recovery") {
       setError("Token de recuperação ausente. Solicite uma nova redefinição.")
       return
     }
@@ -65,6 +93,20 @@ export default function ResetPasswordPage() {
       const { error: updateError } = await supabase.auth.updateUser({ password: newPassword })
       if (updateError) {
         throw new Error(updateError.message)
+      }
+
+      try {
+        await apiFetch("/auth/reset-password/complete", {
+          method: "POST",
+          body: JSON.stringify({
+            accessToken,
+            newPassword,
+          }),
+        })
+      } catch (syncError) {
+        const message =
+          syncError instanceof Error ? syncError.message : "Erro ao sincronizar senha com o servidor"
+        throw new Error(message)
       }
 
       toast.success("Senha redefinida com sucesso. Faça login novamente.")
