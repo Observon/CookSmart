@@ -18,7 +18,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { AnalyzeInvoiceResponseDto } from './dto/analyze-invoice-response.dto';
 import { OcrMetricsResponseDto } from './dto/ocr-metrics-response.dto';
 import { OcrService } from './ocr.service';
-import type { OcrUploadedFile } from './ocr.service';
+import type { OcrUploadedFile } from './ocr.types';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @ApiTags('OCR')
