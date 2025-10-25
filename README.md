@@ -197,6 +197,10 @@ Certifique-se de definir `JWT_SECRET` e `FRONTEND_ORIGIN` no backend para que CO
 
 Os principais fluxos do frontend utilizam hooks que encapsulam comunicação com a API:
 
+- **`useApi()`** (`ui/hooks/use-api.ts`):
+  - Centraliza chamadas autenticadas usando `fetch` e adiciona automaticamente o header `Authorization` com o token vindo do `AuthProvider`.
+  - Converte respostas não OK em erros com mensagens amigáveis, reutilizadas pelos demais hooks.
+  - Fornece método `request<T>(path, options)` que aceita apenas caminhos relativos (`/recipes`, `/ingredients`, etc.), garantindo consistência na base URL.
 - **`useIngredients()`** (`ui/hooks/use-ingredients.ts`):
   - Lista ingredientes (`GET /ingredients`).
   - Cria/atualiza/remove ingredientes (`POST`, `PATCH`, `DELETE /ingredients`).
@@ -205,7 +209,13 @@ Os principais fluxos do frontend utilizam hooks que encapsulam comunicação com
   - Integra com `/recipes` para CRUD de receitas.
   - Retorna estados/ações equivalentes aos de ingredientes.
 
-Ambos dependem de `useAuth()` para obter o token JWT. Ao integrar novas telas, priorize reutilizar esses hooks.
+Fluxo resumido:
+
+1. Componentes chamam `useIngredients()` ou `useRecipes()`.
+2. Esses hooks delegam a `useApi().request()` para executar a requisição.
+3. `useApi` injeta o token vindo do `AuthProvider` e trata erros; em caso de falha, os hooks exibem toasts via `sonner`.
+
+Ao integrar novas telas, priorize reutilizar esses hooks (ou `useApi` diretamente em casos especiais) para manter tratamento consistente de autenticação, estados e mensagens.
 
 ## 🌐 Execução Local & CORS
 
