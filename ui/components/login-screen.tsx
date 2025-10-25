@@ -126,9 +126,8 @@ export function LoginScreen() {
                 <Button
                   type="button"
                   variant="ghost"
-                  size="icon"
                   onClick={() => setShowPassword((prev) => !prev)}
-                  className="absolute inset-y-0 right-2 text-muted-foreground hover:text-foreground"
+                  className="absolute inset-y-0 right-2 self-center flex items-center justify-center text-muted-foreground hover:text-foreground"
                   aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
                 >
                   {showPassword ? (
