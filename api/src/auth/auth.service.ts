@@ -5,22 +5,23 @@ import {
   InternalServerErrorException,
   UnauthorizedException,
 } from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
+import * as bcrypt from 'bcryptjs';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
 import { PrismaService } from '../prisma/prisma.service';
 import { RegisterDto, LoginDto } from './dto';
-import { AuthResponseDto } from './dto/auth-response.dto';
-import { AuthPasswordService } from './services/auth-password.service';
-import { AuthTokenService } from './services/auth-token.service';
-import { AuthSupabaseService } from './services/auth-supabase.service';
+import { AuthResponseDto, AuthUserDto } from './dto/auth-response.dto';
+import { JwtPayload } from './types/jwt-payload.interface';
 
 @Injectable()
 export class AuthService {
+  private supabaseAdminClient: SupabaseClient | null = null;
+
   constructor(
     private readonly prisma: PrismaService,
-    private readonly passwordService: AuthPasswordService,
-    private readonly tokenService: AuthTokenService,
-    private readonly supabaseService: AuthSupabaseService,
+    private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
   ) {}
 
@@ -32,7 +33,7 @@ export class AuthService {
       throw new ConflictException('E-mail já cadastrado');
     }
 
-    const passwordHash = await this.passwordService.hash(dto.password);
+    const passwordHash = await this.hashPassword(dto.password);
     const user = await this.prisma.user.create({
       data: {
         name: dto.name,
@@ -42,7 +43,7 @@ export class AuthService {
       },
     });
 
-    return this.tokenService.buildAuthResponse(user);
+    return this.buildAuthResponse(user);
   }
 
   async login(dto: LoginDto): Promise<AuthResponseDto> {
@@ -53,26 +54,34 @@ export class AuthService {
       throw new UnauthorizedException('Credenciais inválidas');
     }
 
-    const passwordValid = await this.passwordService.compare(dto.password, user.passwordHash);
+    const passwordValid = await bcrypt.compare(dto.password, user.passwordHash);
     if (!passwordValid) {
       throw new UnauthorizedException('Credenciais inválidas');
     }
 
-    return this.tokenService.buildAuthResponse(user);
+    return this.buildAuthResponse(user);
   }
 
   async requestPasswordReset(email: string): Promise<void> {
+    const supabase = this.getSupabaseAdminClient();
     const redirectTo = this.configService.get<string>('SUPABASE_RESET_REDIRECT_URL');
 
     if (!redirectTo) {
       throw new InternalServerErrorException('SUPABASE_RESET_REDIRECT_URL não configurada');
     }
 
-    await this.supabaseService.resetPasswordForEmail(email, redirectTo);
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo,
+    });
+
+    if (error) {
+      throw new InternalServerErrorException(error.message);
+    }
   }
 
   async completePasswordReset(accessToken: string, newPassword: string): Promise<void> {
-    const { data, error } = await this.supabaseService.getUser(accessToken);
+    const supabase = this.getSupabaseAdminClient();
+    const { data, error } = await supabase.auth.getUser(accessToken);
 
     if (error || !data?.user?.email) {
       throw new BadRequestException('Token inválido ou expirado');
@@ -84,11 +93,65 @@ export class AuthService {
       return;
     }
 
-    const passwordHash = await this.passwordService.hash(newPassword);
+    const passwordHash = await this.hashPassword(newPassword);
 
     await this.prisma.user.update({
       where: { id: user.id },
       data: { passwordHash },
     });
+  }
+
+  private async hashPassword(password: string): Promise<string> {
+    const saltRounds = 10;
+    return bcrypt.hash(password, saltRounds);
+  }
+
+  private getSupabaseAdminClient(): SupabaseClient {
+    if (!this.supabaseAdminClient) {
+      const url = this.configService.get<string>('SUPABASE_URL');
+      const serviceRoleKey = this.configService.get<string>('SUPABASE_SERVICE_ROLE_KEY');
+
+      if (!url || !serviceRoleKey) {
+        throw new Error('Supabase credentials are not configured');
+      }
+
+      this.supabaseAdminClient = createClient(url, serviceRoleKey, {
+        auth: {
+          persistSession: false,
+        },
+      });
+    }
+
+    return this.supabaseAdminClient;
+  }
+
+  private buildAuthResponse(user: {
+    id: number;
+    name: string;
+    email: string;
+    phone: string | null;
+  }): AuthResponseDto {
+    const payload: JwtPayload = {
+      sub: user.id,
+      email: user.email,
+    };
+
+    const accessToken = this.jwtService.sign(payload, {
+      secret: this.configService.get<string>('JWT_SECRET'),
+      expiresIn: this.configService.get<string>('JWT_EXPIRES_IN', '1d'),
+    });
+
+    const authUser: AuthUserDto = {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      phone: user.phone,
+    };
+
+    return {
+      accessToken,
+      expiresIn: this.configService.get<string>('JWT_EXPIRES_IN', '1d'),
+      user: authUser,
+    };
   }
 }
