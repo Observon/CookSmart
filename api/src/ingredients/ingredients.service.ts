@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 
 import { Prisma, Ingredient } from '@prisma/client';
 
@@ -10,7 +14,7 @@ export class IngredientsService {
   constructor(private readonly prisma: PrismaService) {}
 
   async create(userId: number, dto: CreateIngredientDto) {
-    const costPerUnit = dto.totalCost / dto.totalAmount;
+    const costPerUnit = this.computeCostPerUnit(dto.totalCost, dto.totalAmount);
 
     const data = {
       userId,
@@ -70,7 +74,7 @@ export class IngredientsService {
     }
 
     if (dto.totalCost !== undefined || dto.totalAmount !== undefined) {
-      data.costPerUnit = totalCost / totalAmount;
+      data.costPerUnit = this.computeCostPerUnit(totalCost, totalAmount);
     }
 
     return this.prisma.ingredient.update({
@@ -107,5 +111,21 @@ export class IngredientsService {
       throw new NotFoundException('Ingrediente não encontrado');
     }
     return ingredient;
+  }
+
+  private computeCostPerUnit(totalCost: number, totalAmount: number): number {
+    if (totalCost <= 0) {
+      throw new BadRequestException(
+        'O custo total do ingrediente deve ser maior que zero',
+      );
+    }
+
+    if (totalAmount <= 0) {
+      throw new BadRequestException(
+        'A quantidade total do ingrediente deve ser maior que zero',
+      );
+    }
+
+    return totalCost / totalAmount;
   }
 }
