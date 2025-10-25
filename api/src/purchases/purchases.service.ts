@@ -1,31 +1,34 @@
-import {
-  Injectable,
-  NotFoundException,
-  BadRequestException,
-} from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 
 import { PrismaService } from '../prisma/prisma.service';
 import { CreatePurchaseDto } from './dto/create-purchase.dto';
 import { UpdatePurchaseDto } from './dto/update-purchase.dto';
+import { PurchasesValidationService } from './services/purchases-validation.service';
+import { PurchasesTotalsService } from './services/purchases-totals.service';
+import { PurchasesInventoryService } from './services/purchases-inventory.service';
 
 @Injectable()
 export class PurchasesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly validationService: PurchasesValidationService,
+    private readonly totalsService: PurchasesTotalsService,
+    private readonly inventoryService: PurchasesInventoryService,
+  ) {}
 
   async create(userId: number, dto: CreatePurchaseDto) {
-    const ingredientIds = [
-      ...new Set(dto.items.map((item) => item.ingredientId)),
-    ];
-    await this.ensureIngredientsBelongToUser(userId, ingredientIds);
+    this.validationService.ensureItemsPresent(dto.items);
+    const ingredientIds = this.validationService.extractIngredientIds(dto.items);
 
     return this.prisma.$transaction(async (tx) => {
-      const totalAmountDecimal = dto.totalAmount !== undefined
-        ? new Prisma.Decimal(dto.totalAmount)
-        : dto.items.reduce(
-            (acc, item) => acc.add(new Prisma.Decimal(item.totalPrice)),
-            new Prisma.Decimal(0),
-          );
+      await this.validationService.ensureIngredientsBelongToUser(tx, userId, ingredientIds);
+
+      const totalAmountDecimal = this.totalsService.computeTotalAmount(
+        dto.items,
+        dto.totalAmount,
+      );
+      this.validationService.ensureTotalsNonNegative(totalAmountDecimal);
 
       const purchase = await tx.purchase.create({
         data: {
@@ -38,21 +41,27 @@ export class PurchasesService {
           currency: dto.currency ?? null,
           totalAmount: totalAmountDecimal,
           items: {
-            create: dto.items.map((item) => ({
-              ingredientId: item.ingredientId,
-              quantity: new Prisma.Decimal(item.quantity),
-              totalPrice: new Prisma.Decimal(item.totalPrice),
-              unitPrice: new Prisma.Decimal(item.totalPrice).div(
-                new Prisma.Decimal(item.quantity),
-              ),
-            })),
+            create: dto.items.map((item) => {
+              const quantityDecimal = new Prisma.Decimal(item.quantity);
+              const totalPriceDecimal = new Prisma.Decimal(item.totalPrice);
+
+              return {
+                ingredientId: item.ingredientId,
+                quantity: quantityDecimal,
+                totalPrice: totalPriceDecimal,
+                unitPrice: this.totalsService.computeUnitPrice(
+                  totalPriceDecimal,
+                  quantityDecimal,
+                ),
+              };
+            }),
           },
         },
         include: this.defaultInclude,
       });
 
       for (const item of dto.items) {
-        await this.adjustIngredientInventory(
+        await this.inventoryService.adjustInventory(
           tx,
           userId,
           item.ingredientId,
@@ -98,14 +107,22 @@ export class PurchasesService {
         throw new NotFoundException('Compra não encontrada');
       }
 
+      let newTotalAmount: Prisma.Decimal;
+      if (dto.totalAmount !== undefined) {
+        newTotalAmount = new Prisma.Decimal(dto.totalAmount);
+      } else if (purchase.totalAmount) {
+        newTotalAmount = purchase.totalAmount;
+      } else {
+        newTotalAmount = new Prisma.Decimal(0);
+      }
+
       if (dto.items) {
-        const ingredientIds = [
-          ...new Set(dto.items.map((item) => item.ingredientId)),
-        ];
-        await this.ensureIngredientsBelongToUser(userId, ingredientIds, tx);
+        this.validationService.ensureItemsPresent(dto.items);
+        const ingredientIds = this.validationService.extractIngredientIds(dto.items);
+        await this.validationService.ensureIngredientsBelongToUser(tx, userId, ingredientIds);
 
         for (const item of purchase.items) {
-          await this.adjustIngredientInventory(
+          await this.inventoryService.adjustInventory(
             tx,
             userId,
             item.ingredientId,
@@ -117,8 +134,26 @@ export class PurchasesService {
 
         await tx.purchaseItem.deleteMany({ where: { purchaseId: id } });
 
+        const itemsForCreation = dto.items.map((item) => {
+          const quantityDecimal = new Prisma.Decimal(item.quantity);
+          const totalPriceDecimal = new Prisma.Decimal(item.totalPrice);
+
+          return {
+            purchaseId: id,
+            ingredientId: item.ingredientId,
+            quantity: quantityDecimal,
+            totalPrice: totalPriceDecimal,
+            unitPrice: this.totalsService.computeUnitPrice(
+              totalPriceDecimal,
+              quantityDecimal,
+            ),
+          };
+        });
+
+        await tx.purchaseItem.createMany({ data: itemsForCreation });
+
         for (const item of dto.items) {
-          await this.adjustIngredientInventory(
+          await this.inventoryService.adjustInventory(
             tx,
             userId,
             item.ingredientId,
@@ -128,20 +163,10 @@ export class PurchasesService {
           );
         }
 
-        await tx.purchaseItem.createMany({
-          data: dto.items.map((item) => ({
-            purchaseId: id,
-            ingredientId: item.ingredientId,
-            quantity: new Prisma.Decimal(item.quantity),
-            totalPrice: new Prisma.Decimal(item.totalPrice),
-            unitPrice: new Prisma.Decimal(item.totalPrice).div(
-              new Prisma.Decimal(item.quantity),
-            ),
-          })),
-        });
-      } else if (dto.purchaseDate || dto.supplier !== undefined) {
-        // No inventory adjustment needed if items remain the same
+        newTotalAmount = this.totalsService.computeTotalAmount(dto.items, dto.totalAmount);
       }
+
+      this.validationService.ensureTotalsNonNegative(newTotalAmount);
 
       const updated = await tx.purchase.update({
         where: { id },
@@ -157,10 +182,7 @@ export class PurchasesService {
           supplierTaxId:
             dto.supplierTaxId !== undefined ? dto.supplierTaxId : purchase.supplierTaxId,
           currency: dto.currency !== undefined ? dto.currency : purchase.currency,
-          totalAmount:
-            dto.totalAmount !== undefined
-              ? new Prisma.Decimal(dto.totalAmount)
-              : purchase.totalAmount,
+          totalAmount: newTotalAmount,
         },
         include: this.defaultInclude,
       });
@@ -183,7 +205,7 @@ export class PurchasesService {
       }
 
       for (const item of purchase.items) {
-        await this.adjustIngredientInventory(
+        await this.inventoryService.adjustInventory(
           tx,
           userId,
           item.ingredientId,
@@ -197,82 +219,6 @@ export class PurchasesService {
       await tx.purchase.delete({ where: { id } });
 
       return { id };
-    });
-  }
-
-  private async ensureIngredientsBelongToUser(
-    userId: number,
-    ingredientIds: number[],
-    tx: Prisma.TransactionClient | PrismaService = this.prisma,
-  ) {
-    if (ingredientIds.length === 0) {
-      throw new BadRequestException('Itens da compra não podem estar vazios');
-    }
-
-    const ingredients = await tx.ingredient.findMany({
-      where: {
-        userId,
-        id: { in: ingredientIds },
-      },
-      select: { id: true },
-    });
-
-    if (ingredients.length !== ingredientIds.length) {
-      throw new BadRequestException(
-        'Ingrediente inválido ou não pertence ao usuário',
-      );
-    }
-  }
-
-  private async adjustIngredientInventory(
-    tx: Prisma.TransactionClient,
-    userId: number,
-    ingredientId: number,
-    quantity: Prisma.Decimal,
-    totalPrice: Prisma.Decimal,
-    direction: 'add' | 'subtract',
-  ) {
-    const ingredient = await tx.ingredient.findFirst({
-      where: { id: ingredientId, userId },
-      select: {
-        totalCost: true,
-        totalAmount: true,
-      },
-    });
-
-    if (!ingredient) {
-      throw new BadRequestException('Ingrediente inválido para atualização');
-    }
-
-    const costDelta = totalPrice;
-    const amountDelta = quantity;
-
-    const newTotalCost =
-      direction === 'add'
-        ? ingredient.totalCost.add(costDelta)
-        : ingredient.totalCost.sub(costDelta);
-    const newTotalAmount =
-      direction === 'add'
-        ? ingredient.totalAmount.add(amountDelta)
-        : ingredient.totalAmount.sub(amountDelta);
-
-    if (newTotalAmount.isNegative() || newTotalCost.isNegative()) {
-      throw new BadRequestException(
-        'Atualização deixaria o ingrediente com valores negativos',
-      );
-    }
-
-    const costPerUnit = newTotalAmount.isZero()
-      ? new Prisma.Decimal(0)
-      : newTotalCost.div(newTotalAmount);
-
-    await tx.ingredient.update({
-      where: { id: ingredientId },
-      data: {
-        totalCost: newTotalCost,
-        totalAmount: newTotalAmount,
-        costPerUnit,
-      },
     });
   }
 

@@ -3,6 +3,9 @@ import { Prisma } from '@prisma/client';
 
 import { PurchasesService } from './purchases.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { PurchasesValidationService } from './services/purchases-validation.service';
+import { PurchasesTotalsService } from './services/purchases-totals.service';
+import { PurchasesInventoryService } from './services/purchases-inventory.service';
 
 describe('PurchasesService', () => {
   let service: PurchasesService;
@@ -27,6 +30,22 @@ describe('PurchasesService', () => {
     $transaction: jest.fn(),
   } as unknown as PrismaService;
 
+  const validationServiceMock = {
+    ensureItemsPresent: jest.fn(),
+    extractIngredientIds: jest.fn(),
+    ensureIngredientsBelongToUser: jest.fn(),
+    ensureTotalsNonNegative: jest.fn(),
+  } as unknown as PurchasesValidationService;
+
+  const totalsServiceMock = {
+    computeTotalAmount: jest.fn(),
+    computeUnitPrice: jest.fn(),
+  } as unknown as PurchasesTotalsService;
+
+  const inventoryServiceMock = {
+    adjustInventory: jest.fn(),
+  } as unknown as PurchasesInventoryService;
+
   beforeEach(async () => {
     Object.values(prismaMock.purchase).forEach((fn) =>
       (fn as jest.Mock).mockReset?.(),
@@ -48,6 +67,9 @@ describe('PurchasesService', () => {
       providers: [
         PurchasesService,
         { provide: PrismaService, useValue: prismaMock },
+        { provide: PurchasesValidationService, useValue: validationServiceMock },
+        { provide: PurchasesTotalsService, useValue: totalsServiceMock },
+        { provide: PurchasesInventoryService, useValue: inventoryServiceMock },
       ],
     }).compile();
 
@@ -76,19 +98,19 @@ describe('PurchasesService', () => {
     (prismaMock.ingredient.findMany as jest.Mock).mockResolvedValue([
       { id: 1 },
     ]);
+    (validationServiceMock.extractIngredientIds as jest.Mock).mockReturnValue([1]);
+    (validationServiceMock.ensureIngredientsBelongToUser as jest.Mock).mockResolvedValue(undefined);
+    (totalsServiceMock.computeTotalAmount as jest.Mock).mockReturnValue(new Prisma.Decimal(45.9));
+    (totalsServiceMock.computeUnitPrice as jest.Mock).mockReturnValue(new Prisma.Decimal(12.5));
+    (validationServiceMock.ensureTotalsNonNegative as jest.Mock).mockReturnValue(undefined);
     (prismaMock.purchase.create as jest.Mock).mockResolvedValue({ id: 99 });
-    (prismaMock.ingredient.findFirst as jest.Mock).mockResolvedValue({
-      totalCost: new Prisma.Decimal(10),
-      totalAmount: new Prisma.Decimal(1),
-    });
-    (prismaMock.ingredient.update as jest.Mock).mockResolvedValue({});
+    (inventoryServiceMock.adjustInventory as jest.Mock).mockResolvedValue(undefined);
 
     const result = await service.create(userId, dto);
 
-    expect(prismaMock.ingredient.findMany).toHaveBeenCalledWith({
-      where: { userId, id: { in: [1] } },
-      select: { id: true },
-    });
+    expect(validationServiceMock.ensureItemsPresent).toHaveBeenCalledWith(dto.items);
+    expect(validationServiceMock.extractIngredientIds).toHaveBeenCalledWith(dto.items);
+    expect(validationServiceMock.ensureIngredientsBelongToUser).toHaveBeenCalled();
 
     expect(prismaMock.purchase.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
@@ -104,14 +126,14 @@ describe('PurchasesService', () => {
       include: expect.any(Object),
     });
 
-    expect(prismaMock.ingredient.update).toHaveBeenCalledWith({
-      where: { id: 1 },
-      data: expect.objectContaining({
-        totalCost: expect.any(Prisma.Decimal),
-        totalAmount: expect.any(Prisma.Decimal),
-        costPerUnit: expect.any(Prisma.Decimal),
-      }),
-    });
+    expect(inventoryServiceMock.adjustInventory).toHaveBeenCalledWith(
+      expect.anything(),
+      userId,
+      1,
+      expect.any(Prisma.Decimal),
+      expect.any(Prisma.Decimal),
+      'add',
+    );
 
     expect(result).toEqual({ id: 99 });
   });
@@ -126,23 +148,14 @@ describe('PurchasesService', () => {
       ],
     };
 
-    (prismaMock.ingredient.findMany as jest.Mock).mockResolvedValue([
-      { id: 1 },
-      { id: 2 },
-    ]);
-    (prismaMock.purchase.create as jest.Mock).mockImplementation(async ({
-      data,
-    }) => {
-      expect(data.totalAmount?.toNumber()).toBeCloseTo(15.5, 2);
-      return { id: 10 };
-    });
-    (prismaMock.ingredient.findFirst as jest.Mock).mockResolvedValue({
-      totalCost: new Prisma.Decimal(0),
-      totalAmount: new Prisma.Decimal(0.1),
-    });
+    (validationServiceMock.extractIngredientIds as jest.Mock).mockReturnValue([1, 2]);
+    (validationServiceMock.ensureIngredientsBelongToUser as jest.Mock).mockResolvedValue(undefined);
+    (totalsServiceMock.computeTotalAmount as jest.Mock).mockReturnValue(new Prisma.Decimal(15.5));
+    (validationServiceMock.ensureTotalsNonNegative as jest.Mock).mockReturnValue(undefined);
+    (prismaMock.purchase.create as jest.Mock).mockResolvedValue({ id: 10 });
 
     await service.create(userId, dto);
 
-    expect(prismaMock.purchase.create).toHaveBeenCalled();
+    expect(totalsServiceMock.computeTotalAmount).toHaveBeenCalledWith(dto.items, undefined);
   });
 });
