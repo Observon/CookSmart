@@ -1,15 +1,15 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
+import { useEffect, useMemo, useState } from "react"
+import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
+import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Card } from "@/components/ui/card"
-import { getSupabaseBrowserClient } from "@/lib/supabase-browser"
 import { apiFetch } from "@/lib/http"
-import { toast } from "sonner"
+import { getSupabaseBrowserClient } from "@/lib/supabase-browser"
 
 export default function ResetPasswordPage() {
   const searchParams = useSearchParams()

@@ -1,14 +1,14 @@
 "use client"
 
+import { ChefHat } from "lucide-react"
 import { useState } from "react"
 
+import { ForgotPasswordScreen } from "@/components/forgot-password-screen"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { ChefHat } from "lucide-react"
-import { ForgotPasswordScreen } from "@/components/forgot-password-screen"
-import { apiFetch } from "@/lib/http"
 import { useAuth } from "@/context/auth-context"
+import { apiFetch } from "@/lib/http"
 
 export function LoginScreen() {
   const [mode, setMode] = useState<"login" | "register">("login")

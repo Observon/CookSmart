@@ -1,17 +1,15 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { LoginScreen } from "@/components/login-screen";
-import { RecipeListScreen } from "@/components/recipe-list-screen";
-import { RecipeFormScreen } from "@/components/recipe-form-screen";
-import { IngredientFormScreen } from "@/components/ingredient-form-screen";
-import { RecipeDetailScreen } from "@/components/recipe-detail-screen";
-import { IngredientsListScreen } from "@/components/ingredients-list-screen";
+import { toast } from "sonner";
+
 import { AiScannerScreen } from "@/components/ai-scanner-screen";
-import { Button } from "@/components/ui/button";
-import { useAuth } from "@/context/auth-context";
-import { useIngredients } from "@/hooks/use-ingredients";
-import { useRecipes } from "@/hooks/use-recipes";
+import { IngredientFormScreen } from "@/components/ingredient-form-screen";
+import { IngredientsListScreen } from "@/components/ingredients-list-screen";
+import { LoginScreen } from "@/components/login-screen";
+import { RecipeDetailScreen } from "@/components/recipe-detail-screen";
+import { RecipeFormScreen } from "@/components/recipe-form-screen";
+import { RecipeListScreen } from "@/components/recipe-list-screen";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -22,6 +20,11 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
+import { useAuth } from "@/context/auth-context";
+import { useIngredients } from "@/hooks/use-ingredients";
+import { useRecipes } from "@/hooks/use-recipes";
+import { createPurchase } from "@/lib/services/purchases";
 import type {
   CreateIngredientPayload,
   CreateRecipePayload,
@@ -30,9 +33,6 @@ import type {
   UpdateRecipePayload,
   CreatePurchasePayload,
 } from "@/lib/types";
-
-import { createPurchase } from "@/lib/services/purchases";
-import { toast } from "sonner";
 
 const roundTo = (value: number, decimals: number) => {
   if (!Number.isFinite(value)) {
@@ -74,14 +74,8 @@ export const normalizePurchaseDate = (rawDate?: string | null) => {
 
 export default function Home() {
   const { token, user, logout, loading: authLoading, initializing } = useAuth();
-  const {
-    ingredients,
-    loading: ingredientsLoading,
-    saving: ingredientsSaving,
-    createIngredient,
-    updateIngredient,
-    deleteIngredient,
-  } = useIngredients();
+  const { ingredients, saving: ingredientsSaving, createIngredient, updateIngredient, deleteIngredient } =
+    useIngredients();
   const {
     recipes,
     loading: recipesLoading,

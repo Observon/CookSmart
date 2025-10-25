@@ -1,17 +1,40 @@
 import type { Ingredient } from "@/lib/types"
 
-export function normalizeIngredient(raw: any): Ingredient {
+export interface RawIngredient {
+  id?: number | string | null
+  name?: string | null
+  unitOfMeasure?: string | null
+  totalCost?: number | string | null
+  totalAmount?: number | string | null
+  costPerUnit?: number | string | null
+  category?: string | null
+}
+
+function toNumber(value: unknown, fallback = 0): number {
+  if (value == null) {
+    return fallback
+  }
+
+  const parsed = typeof value === "string" && value.trim() === "" ? Number.NaN : Number(value)
+  return Number.isFinite(parsed) ? parsed : fallback
+}
+
+function toString(value: unknown, fallback = ""): string {
+  return typeof value === "string" ? value : fallback
+}
+
+export function normalizeIngredient(raw: RawIngredient): Ingredient {
   return {
-    id: Number(raw.id),
-    name: raw.name,
-    unitOfMeasure: raw.unitOfMeasure,
-    totalCost: Number(raw.totalCost),
-    totalAmount: Number(raw.totalAmount),
-    costPerUnit: Number(raw.costPerUnit),
+    id: toNumber(raw.id),
+    name: toString(raw.name),
+    unitOfMeasure: toString(raw.unitOfMeasure),
+    totalCost: toNumber(raw.totalCost),
+    totalAmount: toNumber(raw.totalAmount),
+    costPerUnit: toNumber(raw.costPerUnit),
     category: raw.category ?? null,
   }
 }
 
-export function normalizeIngredients(rawItems: any[]): Ingredient[] {
-  return rawItems.map(normalizeIngredient)
+export function normalizeIngredients(rawItems: RawIngredient[] = []): Ingredient[] {
+  return Array.isArray(rawItems) ? rawItems.map(normalizeIngredient) : []
 }

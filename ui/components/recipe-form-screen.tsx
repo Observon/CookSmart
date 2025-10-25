@@ -1,5 +1,6 @@
 "use client";
 
+import { ArrowLeft, Plus, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -12,7 +13,6 @@ import type {
   Recipe,
   UpdateRecipePayload,
 } from "@/lib/types";
-import { ArrowLeft, DollarSign, Plus, Trash2 } from "lucide-react";
 
 interface RecipeFormScreenProps {
   ingredients: Ingredient[];
@@ -446,7 +446,6 @@ export function RecipeFormScreen({
                   Custo por Porção:
                 </span>
                 <div className="flex items-center gap-1">
-                  {/* <DollarSign className="w-5 h-5 text-primary" /> */}
                   <span className="text-2xl font-bold text-primary">
                     R$ {costPerServing.toFixed(2)}
                   </span>

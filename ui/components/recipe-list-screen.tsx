@@ -1,8 +1,9 @@
 "use client"
 
+import { ChefHat, Plus, DollarSign, Package } from "lucide-react"
+
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
-import { ChefHat, Plus, DollarSign, Package } from "lucide-react"
 import type { Recipe } from "@/lib/types"
 
 interface RecipeListScreenProps {

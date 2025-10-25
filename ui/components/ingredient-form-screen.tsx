@@ -1,6 +1,8 @@
 "use client";
 
+import { ArrowLeft, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -8,8 +10,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { CreateIngredientPayload, Ingredient, UpdateIngredientPayload } from "@/lib/types";
-import { ArrowLeft, Trash2 } from "lucide-react";
-import { toast } from "sonner";
 
 interface IngredientFormScreenProps {
   onSave: (ingredient: CreateIngredientPayload | UpdateIngredientPayload) => Promise<void>;

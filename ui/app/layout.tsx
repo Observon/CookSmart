@@ -1,11 +1,13 @@
+import { Analytics } from '@vercel/analytics/next'
+import { GeistMono } from 'geist/font/mono'
+import { GeistSans } from 'geist/font/sans'
 import type { Metadata } from 'next'
 import type { ReactNode } from 'react'
-import { GeistSans } from 'geist/font/sans'
-import { GeistMono } from 'geist/font/mono'
-import { Analytics } from '@vercel/analytics/next'
-import './globals.css'
-import { AuthProvider } from '@/context/auth-context'
+
 import { Toaster } from '@/components/ui/sonner'
+import { AuthProvider } from '@/context/auth-context'
+
+import './globals.css'
 
 export const metadata: Metadata = {
   title: 'CookSmart',

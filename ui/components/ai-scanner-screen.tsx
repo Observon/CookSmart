@@ -1,18 +1,18 @@
 "use client"
 
+import { ArrowLeft, Camera, Upload, Sparkles, Check, X, Loader2, AlertTriangle } from "lucide-react"
 import { useState } from "react"
+import { toast } from "sonner"
 
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { ArrowLeft, Camera, Upload, Sparkles, Check, X, Loader2, AlertTriangle } from "lucide-react"
-import type { Ingredient } from "@/lib/types"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
-import { toast } from "sonner"
-import { cn } from "@/lib/utils"
 import { useAiScanner } from "@/hooks/use-ai-scanner"
 import type { ConfirmedPurchaseData } from "@/hooks/use-ai-scanner"
+import type { Ingredient } from "@/lib/types"
+import { cn } from "@/lib/utils"
 
 const issueMessages: Record<string, string> = {
   missing_description: "Descrição ausente",

@@ -1,8 +1,9 @@
 "use client"
 
+import { ArrowLeft, Plus, Camera, DollarSign, Package } from "lucide-react"
+
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
-import { ArrowLeft, Plus, Camera, DollarSign, Package } from "lucide-react"
 import type { Ingredient } from "@/lib/types"
 
 interface IngredientsListScreenProps {

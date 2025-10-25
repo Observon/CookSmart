@@ -1,8 +1,9 @@
 "use client";
 
+import { ArrowLeft, Edit, Trash2, TrendingUp } from "lucide-react";
+
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { ArrowLeft, Edit, Trash2, DollarSign, TrendingUp } from "lucide-react";
 import type { Recipe } from "@/lib/types";
 
 interface RecipeDetailScreenProps {
