@@ -23,26 +23,22 @@ interface RecipeFormScreenProps {
   onAddIngredient: () => void;
   editingRecipe?: Recipe | null;
   loading?: boolean;
+  draft: RecipeFormDraft;
+  onDraftChange: (draft: RecipeFormDraft) => void;
 }
 
-interface SelectedIngredient {
+export interface SelectedIngredient {
   ingredientId: number;
   ingredient: Ingredient;
   quantity: number;
 }
 
-function buildInitialSelectedIngredients(
-  recipe?: Recipe | null
-): SelectedIngredient[] {
-  if (!recipe) {
-    return [];
-  }
-
-  return recipe.ingredients.map((detail) => ({
-    ingredientId: detail.ingredientId,
-    ingredient: detail.ingredient,
-    quantity: detail.quantity,
-  }));
+export interface RecipeFormDraft {
+  name: string;
+  description: string;
+  servings: string;
+  profitMargin: string;
+  selectedIngredients: SelectedIngredient[];
 }
 
 //Função que irá arredondar um número para 2 casas decimais
@@ -58,34 +54,18 @@ export function RecipeFormScreen({
   onAddIngredient,
   editingRecipe,
   loading,
+  draft,
+  onDraftChange,
 }: RecipeFormScreenProps) {
-  const [name, setName] = useState(editingRecipe?.name ?? "");
-  const [description, setDescription] = useState(
-    editingRecipe?.description ?? ""
-  );
-  const [servings, setServings] = useState(
-    editingRecipe ? String(editingRecipe.servings) : ""
-  );
-
-  const [profitMargin, setProfitMargin] = useState(
-    editingRecipe?.profitMargin !== undefined
-      ? String(editingRecipe.profitMargin)
-      : "200",
-  );
-
   const normalizedProfitMargin = useMemo(() => {
-    const parsed = Number.parseFloat(profitMargin);
+    const parsed = Number.parseFloat(draft.profitMargin);
     return Number.isFinite(parsed) && parsed >= 0 ? parsed : 200;
-  }, [profitMargin]);
-
-  const [selectedIngredients, setSelectedIngredients] = useState<
-    SelectedIngredient[]
-  >(buildInitialSelectedIngredients(editingRecipe));
+  }, [draft.profitMargin]);
   const [showIngredientSelector, setShowIngredientSelector] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   const handleAddIngredient = (ingredient: Ingredient) => {
-    const exists = selectedIngredients.some(
+    const exists = draft.selectedIngredients.some(
       (item) => item.ingredientId === ingredient.id
     );
     if (exists) {
@@ -93,14 +73,17 @@ export function RecipeFormScreen({
       return;
     }
 
-    setSelectedIngredients([
-      ...selectedIngredients,
-      {
-        ingredientId: ingredient.id,
-        ingredient,
-        quantity: 0,
-      },
-    ]);
+    onDraftChange({
+      ...draft,
+      selectedIngredients: [
+        ...draft.selectedIngredients,
+        {
+          ingredientId: ingredient.id,
+          ingredient,
+          quantity: 0,
+        },
+      ],
+    });
 
     setShowIngredientSelector(false);
   };
@@ -109,27 +92,31 @@ export function RecipeFormScreen({
     ingredientId: number,
     quantity: number
   ) => {
-    setSelectedIngredients((prev) =>
-      prev.map((item) =>
+    onDraftChange({
+      ...draft,
+      selectedIngredients: draft.selectedIngredients.map((item) =>
         item.ingredientId === ingredientId ? { ...item, quantity } : item
-      )
-    );
+      ),
+    });
   };
 
   const handleRemoveIngredient = (ingredientId: number) => {
-    setSelectedIngredients((prev) =>
-      prev.filter((item) => item.ingredientId !== ingredientId)
-    );
+    onDraftChange({
+      ...draft,
+      selectedIngredients: draft.selectedIngredients.filter(
+        (item) => item.ingredientId !== ingredientId
+      ),
+    });
   };
 
   const totalCost = useMemo(() => {
-    return selectedIngredients.reduce(
+    return draft.selectedIngredients.reduce(
       (acc, item) => acc + item.quantity * item.ingredient.costPerUnit,
       0
     );
-  }, [selectedIngredients]);
+  }, [draft.selectedIngredients]);
 
-  const parsedServings = Number.parseInt(servings);
+  const parsedServings = Number.parseInt(draft.servings);
   // custo por porção bruto
   const costPerServingRaw = useMemo(() => {
     if (!Number.isFinite(parsedServings) || parsedServings <= 0) return 0;
@@ -156,7 +143,7 @@ export function RecipeFormScreen({
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    if (!name.trim()) {
+    if (!draft.name.trim()) {
       return;
     }
 
@@ -164,7 +151,7 @@ export function RecipeFormScreen({
       return;
     }
 
-    const cleanedIngredients = selectedIngredients
+    const cleanedIngredients = draft.selectedIngredients
       .filter((item) => item.quantity > 0)
       .map((item) => ({
         ingredientId: item.ingredientId,
@@ -177,9 +164,11 @@ export function RecipeFormScreen({
     }
 
     const payloadBase: CreateRecipePayload = {
-      name: name.trim(),
+      name: draft.name.trim(),
       servings: parsedServings,
-      description: description.trim() ? description.trim() : undefined,
+      description: draft.description.trim()
+        ? draft.description.trim()
+        : undefined,
       ingredients: cleanedIngredients,
       profitMargin: normalizedProfitMargin,
     };
@@ -231,8 +220,10 @@ export function RecipeFormScreen({
             <Input
               id="name"
               placeholder="Ex: Brigadeiro, Bolo de Cenoura..."
-              value={name}
-              onChange={(e) => setName(e.target.value)}
+              value={draft.name}
+              onChange={(e) =>
+                onDraftChange({ ...draft, name: e.target.value })
+              }
               className="h-12 text-base bg-background"
               required
             />
@@ -245,8 +236,10 @@ export function RecipeFormScreen({
             <Input
               id="description"
               placeholder="Notas sobre a receita"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
+              value={draft.description}
+              onChange={(e) =>
+                onDraftChange({ ...draft, description: e.target.value })
+              }
               className="h-12 text-base bg-background"
             />
           </div>
@@ -264,8 +257,10 @@ export function RecipeFormScreen({
               type="number"
               min="1"
               placeholder="Ex: 20"
-              value={servings}
-              onChange={(e) => setServings(e.target.value)}
+              value={draft.servings}
+              onChange={(e) =>
+                onDraftChange({ ...draft, servings: e.target.value })
+              }
               className="h-12 text-base bg-background"
               required
             />
@@ -275,8 +270,10 @@ export function RecipeFormScreen({
               step="0.1"
               min="0"
               placeholder="Ex: 200"
-              value={profitMargin}
-              onChange={(e) => setProfitMargin(e.target.value)}
+              value={draft.profitMargin}
+              onChange={(e) =>
+                onDraftChange({ ...draft, profitMargin: e.target.value })
+              }
               className="h-12 text-base bg-background"
             />
           </div>
@@ -308,7 +305,7 @@ export function RecipeFormScreen({
             </Card>
           ) : (
             <>
-              {selectedIngredients.length === 0 ? (
+              {draft.selectedIngredients.length === 0 ? (
                 <Card className="p-6 text-center bg-muted/50">
                   <p className="text-sm text-muted-foreground mb-3">
                     Nenhum ingrediente adicionado
@@ -328,7 +325,7 @@ export function RecipeFormScreen({
                 </Card>
               ) : (
                 <div className="space-y-3">
-                  {selectedIngredients.map((item) => {
+                  {draft.selectedIngredients.map((item) => {
                     const itemCost =
                       item.quantity * item.ingredient.costPerUnit;
 
@@ -405,7 +402,7 @@ export function RecipeFormScreen({
                   {ingredients
                     .filter(
                       (ing) =>
-                        !selectedIngredients.find(
+                        !draft.selectedIngredients.find(
                           (s) => s.ingredientId === ing.id
                         )
                     )
@@ -432,7 +429,7 @@ export function RecipeFormScreen({
         </div>
 
         {/* Cost Summary */}
-        {selectedIngredients.length > 0 && servings && (
+        {draft.selectedIngredients.length > 0 && draft.servings && (
           <Card className="p-5 bg-accent/50 border-accent">
             <div className="space-y-3">
               <div className="flex items-center justify-between">
@@ -468,16 +465,12 @@ export function RecipeFormScreen({
           className="w-full h-12 text-base font-semibold bg-primary hover:bg-primary/90 text-primary-foreground"
           disabled={
             formDisabled ||
-            !name ||
-            !servings ||
-            selectedIngredients.length === 0
+            !draft.name.trim() ||
+            !draft.servings.trim() ||
+            draft.selectedIngredients.length === 0
           }
         >
-          {submitting || loading
-            ? "Salvando..."
-            : editingRecipe
-            ? "Salvar Alterações"
-            : "Salvar Receita"}
+          {submitting ? "Salvando..." : editingRecipe ? "Salvar alterações" : "Salvar Receita"}
         </Button>
       </form>
     </div>
