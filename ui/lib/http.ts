@@ -4,6 +4,13 @@ type RequestOptions = RequestInit & {
   token?: string
 }
 
+export class ApiError extends Error {
+  constructor(message: string, public readonly status: number) {
+    super(message)
+    this.name = "ApiError"
+  }
+}
+
 async function parseErrorResponse(response: Response): Promise<string> {
   try {
     const payload = await response.json()
@@ -37,7 +44,8 @@ export async function apiFetch<T>(path: string, options: RequestOptions = {}): P
   })
 
   if (!response.ok) {
-    throw new Error(await parseErrorResponse(response))
+    const message = await parseErrorResponse(response)
+    throw new ApiError(message, response.status)
   }
 
   if (response.status === 204) {

@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from 'react'
 
 import { useAuth } from '@/context/auth-context'
-import { apiFetch } from '@/lib/http'
+import { ApiError, apiFetch } from '@/lib/http'
 
 interface UseApiOptions {
   onUnauthorized?: () => void
@@ -14,16 +14,24 @@ interface UseApiResult {
 }
 
 export function useApi(options: UseApiOptions = {}): UseApiResult {
-  const { token } = useAuth()
+  const { token, logout } = useAuth()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const request = useCallback(
     async <T,>(path: string, init: RequestInit = {}): Promise<T> => {
+      const handleUnauthorized = () => {
+        if (options.onUnauthorized) {
+          options.onUnauthorized()
+        } else {
+          logout()
+        }
+      }
+
       if (!token) {
         const unauthorizedError = new Error('Sessão expirada')
         setError(unauthorizedError.message)
-        options.onUnauthorized?.()
+        handleUnauthorized()
         throw unauthorizedError
       }
 
@@ -36,6 +44,13 @@ export function useApi(options: UseApiOptions = {}): UseApiResult {
           token,
         })
       } catch (err) {
+        if (err instanceof ApiError && (err.status === 401 || err.status === 403)) {
+          handleUnauthorized()
+          const unauthorizedError = new Error('Sessão expirada. Entre novamente para continuar.')
+          setError(unauthorizedError.message)
+          throw unauthorizedError
+        }
+
         const normalizedError = err instanceof Error ? err : new Error('Erro desconhecido ao comunicar com a API')
         setError(normalizedError.message)
         throw normalizedError
@@ -43,7 +58,7 @@ export function useApi(options: UseApiOptions = {}): UseApiResult {
         setLoading(false)
       }
     },
-    [options, token],
+    [options, token, logout],
   )
 
   return useMemo(
