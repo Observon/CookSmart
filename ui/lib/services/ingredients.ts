@@ -1,5 +1,4 @@
-import { apiFetch } from "@/lib/http"
-import type { CreateIngredientPayload, Ingredient, UpdateIngredientPayload } from "@/lib/types"
+import type { Ingredient } from "@/lib/types"
 
 export function normalizeIngredient(raw: any): Ingredient {
   return {
@@ -13,42 +12,6 @@ export function normalizeIngredient(raw: any): Ingredient {
   }
 }
 
-export async function listIngredients(token: string): Promise<Ingredient[]> {
-  const data = await apiFetch<any[]>("/ingredients", {
-    method: "GET",
-    token,
-  })
-
-  return data.map(normalizeIngredient)
-}
-
-export async function createIngredient(token: string, payload: CreateIngredientPayload): Promise<Ingredient> {
-  const data = await apiFetch<any>("/ingredients", {
-    method: "POST",
-    token,
-    body: JSON.stringify(payload),
-  })
-
-  return normalizeIngredient(data)
-}
-
-export async function updateIngredient(
-  token: string,
-  id: number,
-  payload: Partial<Omit<UpdateIngredientPayload, "id">>,
-): Promise<Ingredient> {
-  const data = await apiFetch<any>(`/ingredients/${id}`, {
-    method: "PATCH",
-    token,
-    body: JSON.stringify(payload),
-  })
-
-  return normalizeIngredient(data)
-}
-
-export async function deleteIngredient(token: string, id: number): Promise<void> {
-  await apiFetch(`/ingredients/${id}`, {
-    method: "DELETE",
-    token,
-  })
+export function normalizeIngredients(rawItems: any[]): Ingredient[] {
+  return rawItems.map(normalizeIngredient)
 }
