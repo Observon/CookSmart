@@ -1,33 +1,32 @@
-import {
-  Injectable,
-  NotFoundException,
-  BadRequestException,
-} from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateRecipeDto } from './dto/create-recipe.dto';
 import { UpdateRecipeDto } from './dto/update-recipe.dto';
 import { RecipeIngredientInputDto } from './dto/recipe-ingredient-input.dto';
+import {
+  buildIngredientCostLookup,
+  calculateRecipeTotals,
+  calculateSuggestedPrice,
+} from './recipes-cost.utils';
 
 @Injectable()
 export class RecipesService {
   constructor(private readonly prisma: PrismaService) {}
 
   async create(userId: number, dto: CreateRecipeDto) {
-    const ingredients = await this.fetchAndValidateIngredients(
-      userId,
-      dto.ingredients,
-    );
+    const ingredientRecords = await this.fetchIngredientCosts(userId, dto.ingredients);
+    const ingredientCosts = buildIngredientCostLookup(ingredientRecords);
 
-    const { totalCost, costPerServing, recipeIngredients } =
-      this.calculateRecipeCosts(dto.servings, dto.ingredients, ingredients);
+    const { totalCost, costPerServing, recipeIngredients } = calculateRecipeTotals(
+      dto.servings,
+      dto.ingredients,
+      ingredientCosts,
+    );
 
     const profitMarginDecimal = new Prisma.Decimal(dto.profitMargin ?? 200);
-    const suggestedPrice = this.calculateSuggestedPrice(
-      costPerServing,
-      profitMarginDecimal,
-    );
+    const suggestedPrice = calculateSuggestedPrice(costPerServing, profitMarginDecimal);
 
     return this.prisma.recipe.create({
       data: {
@@ -71,9 +70,10 @@ export class RecipesService {
 
     const updatedServings = dto.servings ?? existing.servings;
 
-    let profitMargin = dto.profitMargin !== undefined
-      ? new Prisma.Decimal(dto.profitMargin)
-      : existing.profitMargin ?? new Prisma.Decimal(200);
+    let profitMargin =
+      dto.profitMargin !== undefined
+        ? new Prisma.Decimal(dto.profitMargin)
+        : existing.profitMargin ?? new Prisma.Decimal(200);
 
     let totalCost = existing.totalCost;
     let costPerServing = existing.costPerServing;
@@ -82,15 +82,9 @@ export class RecipesService {
       | undefined;
 
     if (dto.ingredients) {
-      const ingredients = await this.fetchAndValidateIngredients(
-        userId,
-        dto.ingredients,
-      );
-      const recalculated = this.calculateRecipeCosts(
-        updatedServings,
-        dto.ingredients,
-        ingredients,
-      );
+      const ingredientRecords = await this.fetchIngredientCosts(userId, dto.ingredients);
+      const ingredientCosts = buildIngredientCostLookup(ingredientRecords);
+      const recalculated = calculateRecipeTotals(updatedServings, dto.ingredients, ingredientCosts);
       totalCost = recalculated.totalCost;
       costPerServing = recalculated.costPerServing;
       ingredientsUpdate = {
@@ -102,7 +96,7 @@ export class RecipesService {
       costPerServing = totalCost.div(servingsDecimal);
     }
 
-    const suggestedPrice = this.calculateSuggestedPrice(costPerServing, profitMargin);
+    const suggestedPrice = calculateSuggestedPrice(costPerServing, profitMargin);
 
     return this.prisma.recipe.update({
       where: { id },
@@ -142,6 +136,18 @@ export class RecipesService {
     userId: number,
     items: RecipeIngredientInputDto[],
   ) {
+    const ingredients = await this.fetchIngredientCosts(userId, items);
+    return buildIngredientCostLookup(ingredients);
+  }
+
+  private async fetchIngredientCosts(
+    userId: number,
+    items: RecipeIngredientInputDto[],
+  ): Promise<Array<{ id: number; costPerUnit: Prisma.Decimal }>> {
+    if (!items?.length) {
+      throw new BadRequestException('A receita deve conter ao menos um ingrediente');
+    }
+
     const ingredientIds = items.map((item) => item.ingredientId);
     const uniqueIds = [...new Set(ingredientIds)];
 
@@ -149,6 +155,10 @@ export class RecipesService {
       where: {
         userId,
         id: { in: uniqueIds },
+      },
+      select: {
+        id: true,
+        costPerUnit: true,
       },
     });
 
@@ -158,53 +168,7 @@ export class RecipesService {
       );
     }
 
-    const ingredientMap = new Map(
-      ingredients.map((ingredient) => [ingredient.id, ingredient]),
-    );
-    return ingredientMap;
-  }
-
-  private calculateRecipeCosts(
-    servings: number,
-    items: RecipeIngredientInputDto[],
-    ingredientMap: Map<number, { costPerUnit: Prisma.Decimal }>,
-  ) {
-    const totalCostDecimal = items.reduce((acc, item) => {
-      const ingredient = ingredientMap.get(item.ingredientId)!;
-      const quantity = new Prisma.Decimal(item.quantity);
-      const itemCost = ingredient.costPerUnit.mul(quantity);
-      return acc.add(itemCost);
-    }, new Prisma.Decimal(0));
-
-    if (totalCostDecimal.isZero()) {
-      throw new BadRequestException(
-        'O custo total da receita não pode ser zero',
-      );
-    }
-
-    const servingsDecimal = new Prisma.Decimal(servings);
-    const costPerServing = totalCostDecimal.div(servingsDecimal);
-
-    const recipeIngredients = items.map((item) => ({
-      ingredientId: item.ingredientId,
-      quantity: new Prisma.Decimal(item.quantity),
-    }));
-
-    return {
-      totalCost: totalCostDecimal,
-      costPerServing,
-      recipeIngredients,
-    };
-  }
-
-  private calculateSuggestedPrice(
-    costPerServing: Prisma.Decimal,
-    profitMargin: Prisma.Decimal,
-  ) {
-    const multiplier = profitMargin
-      .div(new Prisma.Decimal(100))
-      .add(new Prisma.Decimal(1));
-    return costPerServing.mul(multiplier);
+    return ingredients;
   }
 
   private readonly defaultInclude = {
