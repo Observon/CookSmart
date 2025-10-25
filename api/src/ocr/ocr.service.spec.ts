@@ -1,32 +1,10 @@
-import { BadRequestException, InternalServerErrorException } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import { promises as fs } from 'node:fs';
-import { join } from 'node:path';
+import { BadRequestException } from '@nestjs/common';
 
-import { OcrService, OcrUploadedFile } from './ocr.service';
-
-const textractSendMock = jest.fn();
-const s3SendMock = jest.fn();
-
-jest.mock('@aws-sdk/client-textract', () => {
-  const actual = jest.requireActual('@aws-sdk/client-textract');
-  return {
-    ...actual,
-    TextractClient: jest.fn().mockImplementation(() => ({
-      send: textractSendMock,
-    })),
-  };
-});
-
-jest.mock('@aws-sdk/client-s3', () => {
-  const actual = jest.requireActual('@aws-sdk/client-s3');
-  return {
-    ...actual,
-    S3Client: jest.fn().mockImplementation(() => ({
-      send: s3SendMock,
-    })),
-  };
-});
+import { OcrService } from './ocr.service';
+import type { OcrUploadedFile } from './ocr.types';
+import type { OcrStorageService } from './ocr-storage.service';
+import type { OcrTextractService } from './ocr-textract.service';
+import type { OcrMetricsService, OcrMetricsSnapshot } from './ocr-metrics.service';
 
 describe('OcrService', () => {
   const createFile = (overrides: Partial<OcrUploadedFile> = {}): OcrUploadedFile => ({
@@ -37,174 +15,145 @@ describe('OcrService', () => {
     ...overrides,
   });
 
+  const mockStorage = (): jest.Mocked<OcrStorageService> => ({
+    prepareDocument: jest.fn(),
+  } as unknown as jest.Mocked<OcrStorageService>);
+
+  const mockTextract = (): jest.Mocked<OcrTextractService> => ({
+    analyze: jest.fn(),
+  } as unknown as jest.Mocked<OcrTextractService>);
+
+  const mockMetrics = (): jest.Mocked<OcrMetricsService> => ({
+    recordSuccess: jest.fn(),
+    recordFailure: jest.fn(),
+    reset: jest.fn(),
+    getSnapshot: jest.fn().mockReturnValue({
+      totalAnalyses: 0,
+      totalFailures: 0,
+      averageDurationMs: 0,
+      failureRate: 0,
+      alerts: [],
+    } satisfies OcrMetricsSnapshot),
+  } as unknown as jest.Mocked<OcrMetricsService>);
+
   beforeEach(() => {
-    textractSendMock.mockReset();
-    s3SendMock.mockReset();
+    jest.resetAllMocks();
+    delete process.env.TEXTRACT_MAX_FILE_SIZE_MB;
   });
 
-  afterEach(async () => {
-    await fs.rm(join(process.cwd(), 'tmp', 'ocr'), { recursive: true, force: true });
+  it('lança erro e registra falha quando nenhum arquivo é enviado', async () => {
+    const storage = mockStorage();
+    const textract = mockTextract();
+    const metrics = mockMetrics();
+    const service = new OcrService(storage, textract, metrics);
+
+    await expect(service.analyzeInvoice(undefined)).rejects.toBeInstanceOf(BadRequestException);
+    expect(metrics.recordFailure).toHaveBeenCalledTimes(1);
+    expect(storage.prepareDocument).not.toHaveBeenCalled();
+    expect(textract.analyze).not.toHaveBeenCalled();
   });
 
-  it('lança erro quando nenhum arquivo é enviado', async () => {
-    const service = new OcrService(new ConfigService());
+  it('valida tamanho máximo do arquivo com base na configuração', async () => {
+    process.env.TEXTRACT_MAX_FILE_SIZE_MB = '0.0001';
+    const storage = mockStorage();
+    const textract = mockTextract();
+    const metrics = mockMetrics();
+    const service = new OcrService(storage, textract, metrics);
 
-    await expect(service.analyzeInvoice(undefined)).rejects.toBeInstanceOf(
-      BadRequestException,
-    );
+    await expect(
+      service.analyzeInvoice(createFile({ size: 1024 })),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(metrics.recordFailure).toHaveBeenCalledWith();
+    expect(storage.prepareDocument).not.toHaveBeenCalled();
   });
 
-  it('salva o arquivo localmente quando TEXTRACT_USE_S3=false', async () => {
-    textractSendMock.mockResolvedValue({ ExpenseDocuments: [] });
-    const service = new OcrService(new ConfigService({ TEXTRACT_USE_S3: 'false' }));
+  it('valida tipo de arquivo permitido', async () => {
+    const storage = mockStorage();
+    const textract = mockTextract();
+    const metrics = mockMetrics();
+    const service = new OcrService(storage, textract, metrics);
+
+    await expect(
+      service.analyzeInvoice(createFile({ mimetype: 'text/plain' })),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(metrics.recordFailure).toHaveBeenCalledTimes(1);
+    expect(storage.prepareDocument).not.toHaveBeenCalled();
+  });
+
+  it('processa arquivo com sucesso, delegando para storage, textract e métricas', async () => {
+    const storage = mockStorage();
+    const textract = mockTextract();
+    const metrics = mockMetrics();
+    const service = new OcrService(storage, textract, metrics);
+
+    storage.prepareDocument.mockResolvedValue({
+      document: { Bytes: Buffer.from('nota') },
+      receiptKey: 'ocr/2025/file.pdf',
+    });
+    textract.analyze.mockResolvedValue({
+      ExpenseDocuments: [
+        {
+          SummaryFields: [],
+          LineItemGroups: [],
+        },
+      ],
+    } as any);
 
     const result = await service.analyzeInvoice(createFile());
 
+    expect(storage.prepareDocument).toHaveBeenCalledTimes(1);
+    expect(textract.analyze).toHaveBeenCalledTimes(1);
+    expect(metrics.recordSuccess).toHaveBeenCalledTimes(1);
+    expect(result.receiptImageKey).toBe('ocr/2025/file.pdf');
     expect(result.items).toEqual([]);
-    expect(result.receiptImageKey).toContain(`${join('tmp', 'ocr')}`);
-
-    const exists = await fs
-      .access(result.receiptImageKey as string)
-      .then(() => true)
-      .catch(() => false);
-    expect(exists).toBe(true);
   });
 
-  it('envia o arquivo para o S3 e mapeia campos do Textract', async () => {
-    const config = new ConfigService({
-      TEXTRACT_USE_S3: 'true',
-      TEXTRACT_BUCKET: 'cooksmart-bucket',
-    });
-    const service = new OcrService(config);
+  it('registra falha quando armazenamento lança exceção', async () => {
+    const storage = mockStorage();
+    const textract = mockTextract();
+    const metrics = mockMetrics();
+    const service = new OcrService(storage, textract, metrics);
 
-    s3SendMock.mockResolvedValue({});
-    textractSendMock.mockResolvedValue({
-      ExpenseDocuments: [
-        {
-          SummaryFields: [
-            { Type: { Text: 'VENDOR_NAME' }, ValueDetection: { Text: 'Padaria Central' } },
-            { Type: { Text: 'VENDOR_TAX_ID' }, ValueDetection: { Text: '12.345.678/0001-00' } },
-            { Type: { Text: 'INVOICE_RECEIPT_ID' }, ValueDetection: { Text: 'NF-123' } },
-            { Type: { Text: 'INVOICE_DATE' }, ValueDetection: { Text: '2025-01-02' } },
-            { Type: { Text: 'TOTAL' }, ValueDetection: { Text: '45,90' } },
-            { Type: { Text: 'CURRENCY' }, ValueDetection: { Text: 'BRL' } },
-          ],
-          LineItemGroups: [
-            {
-              LineItems: [
-                {
-                  LineItemExpenseFields: [
-                    { Type: { Text: 'ITEM' }, ValueDetection: { Text: 'Pão Francês', Confidence: 99 } },
-                    { Type: { Text: 'QUANTITY' }, ValueDetection: { Text: '0,485', Confidence: 98 } },
-                    { Type: { Text: 'UNIT_PRICE' }, ValueDetection: { Text: '12.50', Confidence: 97 } },
-                    { Type: { Text: 'PRICE' }, ValueDetection: { Text: '6.06', Confidence: 96 } },
-                  ],
-                },
-              ],
-            },
-          ],
-        },
-      ],
-    });
+    storage.prepareDocument.mockRejectedValue(new Error('storage down'));
 
-    const result = await service.analyzeInvoice(createFile({ originalname: 'nota.pdf' }));
-
-    expect(s3SendMock).toHaveBeenCalledTimes(1);
-    expect(result.supplierName).toBe('Padaria Central');
-    expect(result.supplierTaxId).toBe('12.345.678/0001-00');
-    expect(result.invoiceNumber).toBe('NF-123');
-    expect(result.issueDate).toBe('2025-01-02');
-    expect(result.totalAmount).toBeCloseTo(45.9, 2);
-    expect(result.currency).toBe('BRL');
-    expect(result.items).toHaveLength(1);
-    expect(result.items[0].description).toBe('Pão Francês');
-    expect(result.items[0].quantity).toBeCloseTo(0.485, 3);
-    expect(result.items[0].total).toBeCloseTo(6.06, 2);
-    expect(result.items[0].issues).toBeUndefined();
-    expect(result.receiptImageKey).toMatch(/ocr\//);
+    await expect(service.analyzeInvoice(createFile())).rejects.toThrow('storage down');
+    expect(metrics.recordFailure).toHaveBeenCalledTimes(1);
+    expect(textract.analyze).not.toHaveBeenCalled();
   });
 
-  it('lança erro quando upload no S3 falha', async () => {
-    const config = new ConfigService({
-      TEXTRACT_USE_S3: 'true',
-      TEXTRACT_BUCKET: 'cooksmart-bucket',
+  it('registra falha quando textract lança exceção', async () => {
+    const storage = mockStorage();
+    const textract = mockTextract();
+    const metrics = mockMetrics();
+    const service = new OcrService(storage, textract, metrics);
+
+    storage.prepareDocument.mockResolvedValue({
+      document: { Bytes: Buffer.from('nota') },
+      receiptKey: null,
     });
-    const service = new OcrService(config);
+    textract.analyze.mockRejectedValue(new Error('textract down'));
 
-    s3SendMock.mockRejectedValue(new Error('S3 indisponível'));
-
-    await expect(service.analyzeInvoice(createFile())).rejects.toBeInstanceOf(
-      InternalServerErrorException,
-    );
+    await expect(service.analyzeInvoice(createFile())).rejects.toThrow('textract down');
+    expect(metrics.recordFailure).toHaveBeenCalledTimes(1);
+    expect(metrics.recordSuccess).not.toHaveBeenCalled();
   });
 
-  it('adiciona issues quando dados detectados estão incompletos', async () => {
-    const config = new ConfigService({ TEXTRACT_USE_S3: 'false' });
-    const service = new OcrService(config);
+  it('exibe snapshot de métricas a partir do serviço dedicado', () => {
+    const storage = mockStorage();
+    const textract = mockTextract();
+    const metrics = mockMetrics();
+    const snapshot: OcrMetricsSnapshot = {
+      totalAnalyses: 5,
+      totalFailures: 2,
+      averageDurationMs: 1500,
+      failureRate: 0.4,
+      alerts: ['exemplo'],
+    };
+    metrics.getSnapshot.mockReturnValue(snapshot);
+    const service = new OcrService(storage, textract, metrics);
 
-    textractSendMock.mockResolvedValue({
-      ExpenseDocuments: [
-        {
-          LineItemGroups: [
-            {
-              LineItems: [
-                {
-                  LineItemExpenseFields: [
-                    { Type: { Text: 'ITEM' }, ValueDetection: { Text: '   ' } },
-                    { Type: { Text: 'QUANTITY' }, ValueDetection: { Text: '0' }, Confidence: 40 },
-                    { Type: { Text: 'PRICE' }, ValueDetection: { Text: '' }, Confidence: 40 },
-                  ],
-                },
-                {
-                  LineItemExpenseFields: [
-                    { Type: { Text: 'ITEM' }, ValueDetection: { Text: 'Farinha' }, Confidence: 60 },
-                    { Type: { Text: 'QUANTITY' }, ValueDetection: { Text: '1' }, Confidence: 60 },
-                    { Type: { Text: 'PRICE' }, ValueDetection: { Text: '10,00' }, Confidence: 60 },
-                  ],
-                },
-              ],
-            },
-          ],
-        },
-      ],
-    });
-
-    const result = await service.analyzeInvoice(createFile());
-
-    expect(result.items).toHaveLength(2);
-    expect(result.items[0].issues).toEqual(
-      expect.arrayContaining(['missing_description', 'missing_total', 'missing_quantity', 'low_confidence']),
-    );
-    expect(result.items[1].issues).toEqual(expect.arrayContaining(['low_confidence', 'missing_unit_price']));
-    expect(result.items[1].unitPrice).toBeCloseTo(10, 2);
-  });
-
-  it('acumula métricas e gera alertas quando há falhas frequentes', async () => {
-    const config = new ConfigService({ TEXTRACT_USE_S3: 'false' });
-    const service = new OcrService(config);
-
+    expect(service.getMetrics()).toBe(snapshot);
     service.resetMetrics();
-    textractSendMock.mockResolvedValue({ ExpenseDocuments: [] });
-
-    await service.analyzeInvoice(createFile());
-
-    const initialMetrics = service.getMetrics();
-    expect(initialMetrics.totalAnalyses).toBe(1);
-    expect(initialMetrics.totalFailures).toBe(0);
-    expect(initialMetrics.averageDurationMs).toBeGreaterThanOrEqual(0);
-
-    for (let index = 0; index < 5; index += 1) {
-      await expect(service.analyzeInvoice(undefined)).rejects.toBeInstanceOf(BadRequestException);
-    }
-
-    const metrics = service.getMetrics();
-    expect(metrics.totalAnalyses).toBe(1);
-    expect(metrics.totalFailures).toBe(5);
-    expect(metrics.failureRate).toBeCloseTo(5 / 6, 3);
-    expect(metrics.alerts).toEqual(
-      expect.arrayContaining([
-        'Taxa de falhas >= 20%. Avalie credenciais, limites de tamanho e formato dos arquivos.',
-      ]),
-    );
+    expect(metrics.reset).toHaveBeenCalledTimes(1);
   });
 });
