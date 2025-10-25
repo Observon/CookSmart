@@ -6,10 +6,13 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { ChefHat } from "lucide-react"
+import { ForgotPasswordScreen } from "@/components/forgot-password-screen"
+import { apiFetch } from "@/lib/http"
 import { useAuth } from "@/context/auth-context"
 
 export function LoginScreen() {
   const [mode, setMode] = useState<"login" | "register">("login")
+  const [view, setView] = useState<"auth" | "forgot">("auth")
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
@@ -35,6 +38,26 @@ export function LoginScreen() {
   const toggleMode = () => {
     setMode((prev) => (prev === "login" ? "register" : "login"))
     setError(null)
+  }
+
+  const handleForgotPassword = () => {
+    setView("forgot")
+    setError(null)
+  }
+
+  const handleResetRequested = async (targetEmail: string) => {
+    try {
+      await apiFetch<void>("/auth/forgot-password", {
+        method: "POST",
+        body: JSON.stringify({ email: targetEmail }),
+      })
+    } catch (err) {
+      throw err
+    }
+  }
+
+  if (view === "forgot") {
+    return <ForgotPasswordScreen onBack={() => setView("auth")} onResetRequested={handleResetRequested} />
   }
 
   return (
@@ -130,7 +153,11 @@ export function LoginScreen() {
 
         {/* Footer */}
         <div className="text-center space-y-2">
-          <button className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+          <button
+            type="button"
+            onClick={handleForgotPassword}
+            className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+          >
             Esqueceu a senha?
           </button>
           <p className="text-sm text-muted-foreground">

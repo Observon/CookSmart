@@ -1,10 +1,17 @@
 import { Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
-import { ApiCreatedResponse, ApiOkResponse, ApiTags } from '@nestjs/swagger';
+import {
+  ApiCreatedResponse,
+  ApiNoContentResponse,
+  ApiOkResponse,
+  ApiTags,
+} from '@nestjs/swagger';
 
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { AuthResponseDto } from './dto/auth-response.dto';
+import { RequestPasswordResetDto } from './dto/request-password-reset.dto';
+import { CompleteResetPasswordDto } from './dto/complete-reset-password.dto';
 
 @ApiTags('auth')
 @Controller('auth')
@@ -28,5 +35,19 @@ export class AuthController {
   })
   async login(@Body() data: LoginDto): Promise<AuthResponseDto> {
     return this.authService.login(data);
+  }
+
+  @Post('forgot-password')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiNoContentResponse({ description: 'Solicitação enviada caso o email exista' })
+  async forgotPassword(@Body() data: RequestPasswordResetDto): Promise<void> {
+    await this.authService.requestPasswordReset(data.email);
+  }
+
+  @Post('reset-password/complete')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiNoContentResponse({ description: 'Senha redefinida com sucesso' })
+  async completeReset(@Body() data: CompleteResetPasswordDto): Promise<void> {
+    await this.authService.completePasswordReset(data.accessToken, data.newPassword);
   }
 }
