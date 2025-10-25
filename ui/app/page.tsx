@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo } from "react";
 import { toast } from "sonner";
 
 import { AiScannerScreen } from "@/components/ai-scanner-screen";
@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/auth-context";
+import { useHomeNavigation } from "@/hooks/use-home-navigation";
 import { useIngredients } from "@/hooks/use-ingredients";
 import { useRecipes } from "@/hooks/use-recipes";
 import { createPurchase } from "@/lib/services/purchases";
@@ -84,27 +85,22 @@ export default function Home() {
     updateRecipe,
     deleteRecipe,
   } = useRecipes();
-  const [currentScreen, setCurrentScreen] = useState<
-    | "list"
-    | "add-recipe"
-    | "add-ingredient"
-    | "recipe-detail"
-    | "ingredients-list"
-    | "edit-ingredient"
-    | "ai-scanner"
-  >("list");
-  const [prevScreen, setPrevScreen] = useState<typeof currentScreen | null>(
-    null
-  );
-  const [selectedRecipeId, setSelectedRecipeId] = useState<number | null>(null);
-  const [editingRecipeId, setEditingRecipeId] = useState<number | null>(null);
-  const [editingIngredientId, setEditingIngredientId] = useState<number | null>(
-    null
-  );
-  const [recipeToDelete, setRecipeToDelete] = useState<number | null>(null);
-  const [ingredientToDelete, setIngredientToDelete] = useState<number | null>(
-    null
-  );
+  const {
+    currentScreen,
+    selectedRecipeId,
+    editingRecipeId,
+    editingIngredientId,
+    recipeToDelete,
+    ingredientToDelete,
+    navigateTo,
+    returnToPrevious,
+    resetNavigation,
+    selectRecipe,
+    setEditingRecipe,
+    setEditingIngredient,
+    setRecipeDeletion,
+    setIngredientDeletion,
+  } = useHomeNavigation();
 
   const selectedRecipe = useMemo<Recipe | null>(
     () =>
@@ -134,12 +130,12 @@ export default function Home() {
 
   useEffect(() => {
     if (!token) {
-      setCurrentScreen("list");
-      setSelectedRecipeId(null);
-      setEditingRecipeId(null);
-      setEditingIngredientId(null);
+      resetNavigation("list");
+      selectRecipe(null);
+      setEditingRecipe(null);
+      setEditingIngredient(null);
     }
-  }, [token]);
+  }, [token, resetNavigation, selectRecipe, setEditingRecipe, setEditingIngredient]);
 
   const handleSaveIngredient = async (
     payload: CreateIngredientPayload | UpdateIngredientPayload
@@ -152,9 +148,8 @@ export default function Home() {
     }
 
     // return to previous screen where the user came from
-    setCurrentScreen(prevScreen ?? "ingredients-list");
-    setPrevScreen(null);
-    setEditingIngredientId(null);
+    returnToPrevious("ingredients-list");
+    setEditingIngredient(null);
   };
 
   const handleSaveRecipe = async (
@@ -163,46 +158,46 @@ export default function Home() {
     if ("id" in payload) {
       const { id, ...rest } = payload;
       await updateRecipe(id, rest);
-      setEditingRecipeId(null);
-      setSelectedRecipeId(id);
+      setEditingRecipe(null);
+      selectRecipe(id);
     } else {
       const recipe = await createRecipe(payload);
       if (recipe) {
-        setSelectedRecipeId(recipe.id);
+        selectRecipe(recipe.id);
       }
     }
 
-    setCurrentScreen("list");
+    navigateTo("list");
   };
 
   const handleEditRecipe = (recipe: Recipe) => {
-    setEditingRecipeId(recipe.id);
-    setCurrentScreen("add-recipe");
+    setEditingRecipe(recipe.id);
+    navigateTo("add-recipe");
   };
 
   const handleDeleteRecipe = async (recipeId: number) => {
     try {
       await deleteRecipe(recipeId);
       if (selectedRecipeId === recipeId) {
-        setSelectedRecipeId(null);
+        selectRecipe(null);
       }
       if (editingRecipeId === recipeId) {
-        setEditingRecipeId(null);
+        setEditingRecipe(null);
       }
-      setCurrentScreen("list");
-      setRecipeToDelete(null);
+      navigateTo("list");
+      setRecipeDeletion(null);
     } catch (error) {
       const message = error instanceof Error 
         ? error.message 
         : "Erro ao excluir a receita";
       toast.error(message);
-      setRecipeToDelete(null);
+      setRecipeDeletion(null);
     }
   };
 
   const handleViewRecipe = (recipe: Recipe) => {
-    setSelectedRecipeId(recipe.id);
-    setCurrentScreen("recipe-detail");
+    selectRecipe(recipe.id);
+    navigateTo("recipe-detail");
   };
 
   const handleUpdateIngredientPrices = async ({
@@ -278,22 +273,22 @@ export default function Home() {
       toast.error(message);
       throw error;
     } finally {
-      setCurrentScreen("ingredients-list");
+      navigateTo("ingredients-list");
     }
   };
 
   const handleDeleteIngredient = async (ingredientId: number) => {
     try {
       await deleteIngredient(ingredientId);
-      setEditingIngredientId(null);
-      setCurrentScreen("ingredients-list");
-      setIngredientToDelete(null);
+      setEditingIngredient(null);
+      navigateTo("ingredients-list");
+      setIngredientDeletion(null);
     } catch (error) {
       const message = error instanceof Error 
         ? error.message 
         : "Erro ao excluir o ingrediente";
       toast.error(message);
-      setIngredientToDelete(null);
+      setIngredientDeletion(null);
     }
   };
 
@@ -335,11 +330,11 @@ export default function Home() {
         <RecipeListScreen
           recipes={recipes}
           onAddRecipe={() => {
-            setEditingRecipeId(null);
-            setCurrentScreen("add-recipe");
+            setEditingRecipe(null);
+            navigateTo("add-recipe");
           }}
           onViewRecipe={handleViewRecipe}
-          onManageIngredients={() => setCurrentScreen("ingredients-list")}
+          onManageIngredients={() => navigateTo("ingredients-list")}
         />
       )}
 
@@ -348,13 +343,12 @@ export default function Home() {
           ingredients={ingredients}
           onSave={handleSaveRecipe}
           onCancel={() => {
-            setEditingRecipeId(null);
-            setCurrentScreen("list");
+            setEditingRecipe(null);
+            navigateTo("list");
           }}
           onAddIngredient={() => {
-            setPrevScreen(currentScreen);
-            setEditingIngredientId(null);
-            setCurrentScreen("add-ingredient");
+            setEditingIngredient(null);
+            navigateTo("add-ingredient", { rememberPrevious: true });
           }}
           editingRecipe={editingRecipe}
           loading={recipesLoading || recipesSaving}
@@ -365,9 +359,8 @@ export default function Home() {
         <IngredientFormScreen
           onSave={handleSaveIngredient}
           onCancel={() => {
-            setEditingIngredientId(null);
-            setCurrentScreen(prevScreen ?? "ingredients-list");
-            setPrevScreen(null);
+            setEditingIngredient(null);
+            returnToPrevious("ingredients-list");
           }}
           editingIngredient={editingIngredient}
           loading={ingredientsSaving}
@@ -378,26 +371,25 @@ export default function Home() {
       {currentScreen === "recipe-detail" && selectedRecipe && (
         <RecipeDetailScreen
           recipe={selectedRecipe}
-          onBack={() => setCurrentScreen("list")}
+          onBack={() => navigateTo("list")}
           onEdit={() => handleEditRecipe(selectedRecipe)}
-          onDelete={() => setRecipeToDelete(selectedRecipe.id)}
+          onDelete={() => setRecipeDeletion(selectedRecipe.id)}
         />
       )}
 
       {currentScreen === "ingredients-list" && (
         <IngredientsListScreen
           ingredients={ingredients}
-          onBack={() => setCurrentScreen("list")}
+          onBack={() => navigateTo("list")}
           onEditIngredient={(ingredient) => {
-            setEditingIngredientId(ingredient.id);
-            setCurrentScreen("edit-ingredient");
+            setEditingIngredient(ingredient.id);
+            navigateTo("edit-ingredient");
           }}
           onAddIngredient={() => {
-            setPrevScreen(currentScreen);
-            setEditingIngredientId(null);
-            setCurrentScreen("add-ingredient");
+            setEditingIngredient(null);
+            navigateTo("add-ingredient", { rememberPrevious: true });
           }}
-          onScanInvoice={() => setCurrentScreen("ai-scanner")}
+          onScanInvoice={() => navigateTo("ai-scanner")}
         />
       )}
 
@@ -405,10 +397,10 @@ export default function Home() {
         <IngredientFormScreen
           onSave={handleSaveIngredient}
           onCancel={() => {
-            setEditingIngredientId(null);
-            setCurrentScreen("ingredients-list");
+            setEditingIngredient(null);
+            navigateTo("ingredients-list");
           }}
-          onDelete={() => setIngredientToDelete(editingIngredient.id)}
+          onDelete={() => setIngredientDeletion(editingIngredient.id)}
           editingIngredient={editingIngredient}
           loading={ingredientsSaving}
           existingIngredients={ingredients}
@@ -418,7 +410,7 @@ export default function Home() {
       {currentScreen === "ai-scanner" && (
         <AiScannerScreen
           ingredients={ingredients}
-          onBack={() => setCurrentScreen("ingredients-list")}
+          onBack={() => navigateTo("ingredients-list")}
           onUpdatePrices={handleUpdateIngredientPrices}
         />
       )}
@@ -426,7 +418,7 @@ export default function Home() {
       <AlertDialog
         open={recipeToDelete !== null}
         onOpenChange={(open) => {
-          if (!open) setRecipeToDelete(null);
+          if (!open) setRecipeDeletion(null);
         }}
       >
         <AlertDialogContent>
@@ -457,7 +449,7 @@ export default function Home() {
       <AlertDialog
         open={ingredientToDelete !== null}
         onOpenChange={(open) => {
-          if (!open) setIngredientToDelete(null);
+          if (!open) setIngredientDeletion(null);
         }}
       >
         <AlertDialogContent>
