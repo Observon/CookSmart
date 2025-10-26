@@ -3,6 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react"
 
 import { apiFetch } from "@/lib/http"
+import { resetUnauthorizedToast } from "@/lib/session-notifier"
 import type { AuthResponse, AuthUser } from "@/lib/types"
 import { toast } from "sonner"
 
@@ -23,7 +24,7 @@ interface AuthContextValue {
   initializing: boolean
   login: (credentials: LoginCredentials) => Promise<void>
   register: (data: RegisterPayload) => Promise<void>
-  logout: () => void
+  logout: (options?: { silent?: boolean }) => void
 }
 
 const STORAGE_TOKEN_KEY = "cooksmart_token"
@@ -65,6 +66,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const persistSession = useCallback((session: AuthResponse) => {
     setToken(session.accessToken)
     setUser(session.user)
+    resetUnauthorizedToast()
 
     if (typeof window !== "undefined") {
       window.localStorage.setItem(STORAGE_TOKEN_KEY, session.accessToken)
@@ -75,6 +77,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const clearSession = useCallback(() => {
     setToken(null)
     setUser(null)
+    resetUnauthorizedToast()
 
     if (typeof window !== "undefined") {
       window.localStorage.removeItem(STORAGE_TOKEN_KEY)
@@ -118,10 +121,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [persistSession])
 
-  const logout = useCallback(() => {
-    clearSession()
-    toast.success("Sessão encerrada")
-  }, [clearSession])
+  const logout = useCallback(
+    (options?: { silent?: boolean }) => {
+      clearSession()
+      if (!options?.silent) {
+        toast.success("Sessão encerrada")
+      }
+    },
+    [clearSession],
+  )
 
   const value = useMemo(
     () => ({
