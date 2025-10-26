@@ -333,7 +333,6 @@ export function AiScannerScreen({ ingredients, onBack, onUpdatePrices }: AiScann
                   setSubmitting(true)
                   try {
                     await onUpdatePrices(payload)
-                    toast.success("Preços e compra registrados com sucesso")
                     reset()
                     onBack()
                   } catch (error) {
