@@ -320,7 +320,7 @@ export default function Home() {
         <Button
           variant="outline"
           size="sm"
-          onClick={logout}
+          onClick={() => logout()}
           disabled={authLoading}
         >
           Sair
