@@ -11,7 +11,7 @@ type CreateResult = Recipe | undefined
 type UpdateResult = Recipe | undefined
 
 export function useRecipes() {
-  const api = useApi()
+  const { request } = useApi()
   const [recipes, setRecipes] = useState<Recipe[]>([])
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -22,7 +22,7 @@ export function useRecipes() {
     setError(null)
 
     try {
-      const data = await api.request<Recipe[]>("/recipes")
+      const data = await request<Recipe[]>("/recipes")
       setRecipes(data)
     } catch (err) {
       const message = err instanceof Error ? err.message : "Não foi possível carregar as receitas"
@@ -31,7 +31,7 @@ export function useRecipes() {
     } finally {
       setLoading(false)
     }
-  }, [api])
+  }, [request])
 
   useEffect(() => {
     void fetchRecipes()
@@ -41,7 +41,7 @@ export function useRecipes() {
     async (payload: CreateRecipePayload): Promise<CreateResult> => {
       setSaving(true)
       try {
-        const recipe = await api.request<Recipe>("/recipes", {
+        const recipe = await request<Recipe>("/recipes", {
           method: "POST",
           body: JSON.stringify(payload),
         })
@@ -56,14 +56,14 @@ export function useRecipes() {
         setSaving(false)
       }
     },
-    [api],
+    [request],
   )
 
   const handleUpdate = useCallback(
     async (id: number, payload: UpdatePayload): Promise<UpdateResult> => {
       setSaving(true)
       try {
-        const updated = await api.request<Recipe>(`/recipes/${id}`, {
+        const updated = await request<Recipe>(`/recipes/${id}`, {
           method: "PATCH",
           body: JSON.stringify(payload),
         })
@@ -78,14 +78,14 @@ export function useRecipes() {
         setSaving(false)
       }
     },
-    [api],
+    [request],
   )
 
   const handleDelete = useCallback(
     async (id: number) => {
       setSaving(true)
       try {
-        await api.request(`/recipes/${id}`, {
+        await request(`/recipes/${id}`, {
           method: "DELETE",
         })
         setRecipes((prev) => prev.filter((recipe) => recipe.id !== id))
@@ -98,7 +98,7 @@ export function useRecipes() {
         setSaving(false)
       }
     },
-    [api],
+    [request],
   )
 
   return {

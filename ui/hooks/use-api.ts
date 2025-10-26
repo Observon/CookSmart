@@ -15,19 +15,20 @@ interface UseApiResult {
 
 export function useApi(options: UseApiOptions = {}): UseApiResult {
   const { token, logout } = useAuth()
+  const { onUnauthorized } = options
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  const handleUnauthorized = useCallback(() => {
+    if (onUnauthorized) {
+      onUnauthorized()
+    } else {
+      logout()
+    }
+  }, [logout, onUnauthorized])
+
   const request = useCallback(
     async <T,>(path: string, init: RequestInit = {}): Promise<T> => {
-      const handleUnauthorized = () => {
-        if (options.onUnauthorized) {
-          options.onUnauthorized()
-        } else {
-          logout()
-        }
-      }
-
       if (!token) {
         const unauthorizedError = new Error('Sessão expirada')
         setError(unauthorizedError.message)
@@ -58,7 +59,7 @@ export function useApi(options: UseApiOptions = {}): UseApiResult {
         setLoading(false)
       }
     },
-    [options, token, logout],
+    [token, handleUnauthorized],
   )
 
   return useMemo(
