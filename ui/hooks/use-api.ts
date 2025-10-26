@@ -1,7 +1,9 @@
 import { useCallback, useMemo, useState } from 'react'
+import { toast } from 'sonner'
 
 import { useAuth } from '@/context/auth-context'
 import { ApiError, apiFetch } from '@/lib/http'
+import { markUnauthorizedToastDisplayed } from '@/lib/session-notifier'
 
 interface UseApiOptions {
   onUnauthorized?: () => void
@@ -13,6 +15,13 @@ interface UseApiResult {
   request: <T>(path: string, init?: RequestInit) => Promise<T>
 }
 
+export class UnauthorizedError extends Error {
+  constructor(message = 'Sessão expirada. Entre novamente para continuar.') {
+    super(message)
+    this.name = 'UnauthorizedError'
+  }
+}
+
 export function useApi(options: UseApiOptions = {}): UseApiResult {
   const { token, logout } = useAuth()
   const { onUnauthorized } = options
@@ -20,17 +29,20 @@ export function useApi(options: UseApiOptions = {}): UseApiResult {
   const [error, setError] = useState<string | null>(null)
 
   const handleUnauthorized = useCallback(() => {
+    if (markUnauthorizedToastDisplayed()) {
+      toast.error('Sessão expirada. Entre novamente para continuar.')
+    }
     if (onUnauthorized) {
       onUnauthorized()
     } else {
-      logout()
+      logout({ silent: true })
     }
   }, [logout, onUnauthorized])
 
   const request = useCallback(
     async <T,>(path: string, init: RequestInit = {}): Promise<T> => {
       if (!token) {
-        const unauthorizedError = new Error('Sessão expirada')
+        const unauthorizedError = new UnauthorizedError()
         setError(unauthorizedError.message)
         handleUnauthorized()
         throw unauthorizedError
@@ -47,7 +59,7 @@ export function useApi(options: UseApiOptions = {}): UseApiResult {
       } catch (err) {
         if (err instanceof ApiError && (err.status === 401 || err.status === 403)) {
           handleUnauthorized()
-          const unauthorizedError = new Error('Sessão expirada. Entre novamente para continuar.')
+          const unauthorizedError = new UnauthorizedError(err.message)
           setError(unauthorizedError.message)
           throw unauthorizedError
         }
