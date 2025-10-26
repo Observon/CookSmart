@@ -32,6 +32,8 @@ export function useRecipes() {
       setRecipes(normalizeRecipes(data as any) as Recipe[])
     } catch (err) {
       if (err instanceof UnauthorizedError) {
+        setError(err.message)
+        setRecipes([])
         return
       }
       const message = err instanceof Error ? err.message : "Não foi possível carregar as receitas"

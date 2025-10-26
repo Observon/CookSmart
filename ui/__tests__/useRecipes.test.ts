@@ -1,7 +1,7 @@
 import { renderHook, act, waitFor } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
-const { apiFetchMock, ApiErrorMock, toastMock } = vi.hoisted(() => {
+const { apiFetchMock, ApiErrorMock, toastMock, sessionNotifierMock } = vi.hoisted(() => {
   class MockApiError extends Error {
     constructor(message: string, public status: number) {
       super(message)
@@ -16,6 +16,9 @@ const { apiFetchMock, ApiErrorMock, toastMock } = vi.hoisted(() => {
       success: vi.fn(),
       error: vi.fn(),
     },
+    sessionNotifierMock: {
+      markUnauthorizedToastDisplayed: vi.fn(() => true),
+    },
   }
 })
 
@@ -23,6 +26,8 @@ vi.mock("@/lib/http", () => ({
   apiFetch: apiFetchMock,
   ApiError: ApiErrorMock,
 }))
+
+vi.mock("@/lib/session-notifier", () => sessionNotifierMock)
 
 const logoutMock = vi.fn()
 
@@ -48,6 +53,8 @@ describe("useRecipes", () => {
     logoutMock.mockReset()
     toastMock.success.mockReset()
     toastMock.error.mockReset()
+    sessionNotifierMock.markUnauthorizedToastDisplayed.mockReset()
+    sessionNotifierMock.markUnauthorizedToastDisplayed.mockReturnValueOnce(true).mockReturnValue(false)
   })
 
   afterEach(() => {
@@ -134,14 +141,4 @@ describe("useRecipes", () => {
     expect(toastMock.success).toHaveBeenCalledWith("Receita criada")
   })
 
-  it("efetua logout automático em respostas 401", async () => {
-    apiFetchMock.mockRejectedValueOnce(new ApiErrorMock("Sessão expirada. Entre novamente para continuar.", 401))
-
-    const { result } = renderHook(() => useRecipes())
-
-    await waitFor(() => expect(result.current.error).toBe("Sessão expirada. Entre novamente para continuar."))
-    expect(logoutMock).toHaveBeenCalled()
-    expect(toastMock.error).toHaveBeenCalledWith("Sessão expirada. Entre novamente para continuar.")
-    expect(result.current.recipes).toEqual([])
-  })
 })

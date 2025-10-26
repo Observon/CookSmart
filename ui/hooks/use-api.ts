@@ -44,7 +44,6 @@ export function useApi(options: UseApiOptions = {}): UseApiResult {
       if (!token) {
         const unauthorizedError = new UnauthorizedError()
         setError(unauthorizedError.message)
-        handleUnauthorized()
         throw unauthorizedError
       }
 
