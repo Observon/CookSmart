@@ -13,7 +13,7 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
   const steps = [
     {
       icon: <ChefHat className="w-16 h-16 text-primary" />,
-      title: "Bem-vindo ao Minha Receita!",
+      title: "Bem-vindo ao CookSmart!",
       description:
         "Calcule o custo real das suas receitas de forma simples e profissional. Vamos te mostrar como funciona!",
       image: "/chef-cooking.png",
