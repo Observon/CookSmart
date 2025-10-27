@@ -68,7 +68,7 @@ export function LoginScreen() {
           <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-primary/10 mb-4">
             <ChefHat className="w-10 h-10 text-primary" />
           </div>
-          <h1 className="text-4xl font-bold text-balance text-foreground">Minha Receita</h1>
+          <h1 className="text-4xl font-bold text-balance text-foreground">CookSmart</h1>
           <p className="text-lg text-muted-foreground text-pretty">
             Calcule o custo das suas receitas e venda com lucro
           </p>

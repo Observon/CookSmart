@@ -5,9 +5,10 @@ import { OcrService } from './ocr.service';
 import { OcrController } from './ocr.controller';
 import { AuthModule } from '../auth/auth.module';
 import { OcrMonitorService } from './ocr.monitor.service';
+import { IngredientsModule } from '../ingredients/ingredients.module';
 
 @Module({
-  imports: [ConfigModule, AuthModule],
+  imports: [ConfigModule, AuthModule, IngredientsModule],
   controllers: [OcrController],
   providers: [OcrService, OcrMonitorService],
   exports: [OcrService],
