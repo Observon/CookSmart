@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import type { CreateIngredientPayload, Ingredient, UpdateIngredientPayload } from "@/lib/types";
 import { ArrowLeft, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { DEFAULT_UNIT, UNIT_OPTIONS, normalizeUnit } from "@/lib/constants/units";
 
 interface IngredientFormScreenProps {
   onSave: (ingredient: CreateIngredientPayload | UpdateIngredientPayload) => Promise<void>;
@@ -20,7 +21,7 @@ interface IngredientFormScreenProps {
   existingIngredients?: Ingredient[];
 }
 
-const UNITS = ["kg", "g", "L", "ml", "unidade", "dúzia", "xícara", "colher (sopa)", "colher (chá)"];
+const UNIT_OPTIONS_LIST = Array.from(new Set([...UNIT_OPTIONS, DEFAULT_UNIT]));
 
 export function IngredientFormScreen({
   onSave,
@@ -37,12 +38,13 @@ export function IngredientFormScreen({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const resolvedUnit = unit || editingIngredient?.unitOfMeasure || "";
+  const resolvedUnit = unit;
+  const displayUnit = resolvedUnit || DEFAULT_UNIT;
 
   useEffect(() => {
     if (editingIngredient) {
       setName(editingIngredient.name);
-      setUnit(editingIngredient.unitOfMeasure);
+      setUnit(normalizeUnit(editingIngredient.unitOfMeasure));
       setTotalCost(editingIngredient.totalCost.toString());
       setTotalAmount(editingIngredient.totalAmount.toString());
     } else {
@@ -96,14 +98,14 @@ export function IngredientFormScreen({
       ? {
           id: editingIngredient.id,
           name,
-          unitOfMeasure: resolvedUnit,
+          unitOfMeasure: normalizeUnit(resolvedUnit),
           totalCost: parsedCost,
           totalAmount: parsedAmount,
           category: editingIngredient.category ?? undefined,
         }
       : {
           name,
-          unitOfMeasure: resolvedUnit,
+          unitOfMeasure: normalizeUnit(resolvedUnit),
           totalCost: parsedCost,
           totalAmount: parsedAmount,
         };
@@ -181,12 +183,16 @@ export function IngredientFormScreen({
             <Label htmlFor="unit" className="text-foreground">
               Unidade de Medida
             </Label>
-            <Select value={resolvedUnit} onValueChange={setUnit} required>
+            <Select
+              value={resolvedUnit || undefined}
+              onValueChange={(nextValue) => setUnit(normalizeUnit(nextValue))}
+              required
+            >
               <SelectTrigger className="h-12 text-base bg-background">
                 <SelectValue placeholder="Selecione a unidade" />
               </SelectTrigger>
               <SelectContent>
-                {UNITS.map((item) => (
+                {UNIT_OPTIONS_LIST.map((item) => (
                   <SelectItem key={item} value={item}>
                     {item}
                   </SelectItem>
@@ -236,7 +242,7 @@ export function IngredientFormScreen({
         {totalCost && totalAmount && (
           <Card className="p-5 bg-accent/50 border-accent">
             <div className="text-center space-y-1">
-              <p className="text-sm text-muted-foreground">Custo por {unit || "unidade"}:</p>
+              <p className="text-sm text-muted-foreground">Custo por {displayUnit}:</p>
               <p className="text-3xl font-bold text-primary">R$ {costPerUnit}</p>
             </div>
           </Card>

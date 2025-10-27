@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -8,22 +8,42 @@ import { ArrowLeft, Camera, Upload, Sparkles, Check, X, Loader2, AlertTriangle }
 import type { Ingredient } from "@/lib/types"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { useAuth } from "@/context/auth-context"
-import { analyzeInvoice } from "@/lib/services/ocr"
+import { analyzeInvoice, createDetectedIngredients } from "@/lib/services/ocr"
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
+import { DEFAULT_UNIT, UNIT_OPTIONS, normalizeUnit } from "@/lib/constants/units"
+
+const UNIT_SELECTIONS: string[] = Array.from(new Set([...UNIT_OPTIONS, DEFAULT_UNIT]))
 
 interface InvoiceItem {
+  clientItemId: string
   ingredientId: number | null
   ingredientName: string
   detectedName: string
   newCost: number
   newAmount: number
   unit: string
+  resolvedUnit: string
   confidence: number
   selected: boolean
   autoMatched: boolean
   issues?: string[]
+}
+
+function generateClientItemId(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID()
+  }
+
+  return `${Date.now()}-${Math.random().toString(16).slice(2)}`
 }
 
 const issueMessages: Record<string, string> = {
@@ -48,6 +68,7 @@ const issueVariant = (issue: string): "default" | "secondary" | "destructive" | 
 
 export interface ConfirmedPurchaseData {
   updates: Array<{ ingredientId: number; newCost: number; newAmount: number }>
+  createdIngredients?: Ingredient[]
   supplierName?: string | null
   supplierTaxId?: string | null
   invoiceNumber?: string | null
@@ -68,6 +89,7 @@ export function AiScannerScreen({ ingredients, onBack, onUpdatePrices }: AiScann
   const [isScanning, setIsScanning] = useState(false)
   const [scannedItems, setScannedItems] = useState<InvoiceItem[]>([])
   const [hasScanned, setHasScanned] = useState(false)
+  const [availableIngredients, setAvailableIngredients] = useState(ingredients)
   const [supplierName, setSupplierName] = useState<string | null>(null)
   const [invoiceNumber, setInvoiceNumber] = useState<string | null>(null)
   const [totalAmount, setTotalAmount] = useState<number | null>(null)
@@ -81,13 +103,17 @@ export function AiScannerScreen({ ingredients, onBack, onUpdatePrices }: AiScann
 
   const fileInputRef = useRef<HTMLInputElement | null>(null)
 
+  useEffect(() => {
+    setAvailableIngredients(ingredients)
+  }, [ingredients])
+
   const normalizedIngredients = useMemo(
     () =>
-      ingredients.map((ingredient) => ({
+      availableIngredients.map((ingredient) => ({
         ...ingredient,
         normalizedName: normalizeText(ingredient.name),
       })),
-    [ingredients],
+    [availableIngredients],
   )
 
   const findMatchingIngredient = useCallback(
@@ -165,11 +191,12 @@ export function AiScannerScreen({ ingredients, onBack, onUpdatePrices }: AiScann
       const normalizedItems: InvoiceItem[] = []
 
       for (const item of response.items) {
+        const clientItemId = generateClientItemId()
         const ingredientMatch = findMatchingIngredient(item.description)
 
         const normalizedQuantity = item.quantity && item.quantity > 0 ? item.quantity : null
         const quantityForMatched = normalizedQuantity ?? 1
-        const quantityForUnmatched = normalizedQuantity ?? null
+        const quantityForUnmatched = normalizedQuantity ?? 1
         const issues = [...(item.issues ?? [])]
 
         if (!ingredientMatch) {
@@ -180,13 +207,17 @@ export function AiScannerScreen({ ingredients, onBack, onUpdatePrices }: AiScann
 
           const total = resolveValue(item.total, item.unitPrice, quantityForUnmatched)
 
+          const normalizedUnit = normalizeUnit(item.unit)
+
           normalizedItems.push({
+            clientItemId,
             ingredientId: null,
             ingredientName: item.description?.trim() || "Item sem correspondência",
             detectedName: item.description ?? "",
             newCost: total,
             newAmount: quantityForUnmatched ?? 0,
-            unit: item.unit ?? "",
+            unit: normalizedUnit,
+            resolvedUnit: normalizedUnit,
             confidence: item.confidence ?? 0,
             selected: false,
             autoMatched: false,
@@ -198,13 +229,17 @@ export function AiScannerScreen({ ingredients, onBack, onUpdatePrices }: AiScann
         const total = resolveValue(item.total, item.unitPrice, quantityForMatched)
         const hasIssues = issues.length > 0
 
+        const matchedUnit = normalizeUnit(ingredientMatch.unitOfMeasure ?? item.unit)
+
         normalizedItems.push({
+          clientItemId,
           ingredientId: ingredientMatch.id,
           ingredientName: ingredientMatch.name,
           detectedName: item.description ?? "",
           newCost: total,
           newAmount: quantityForMatched,
-          unit: item.unit ?? ingredientMatch.unitOfMeasure ?? "",
+          unit: matchedUnit,
+          resolvedUnit: matchedUnit,
           confidence: item.confidence ?? 0,
           selected: !hasIssues,
           autoMatched: true,
@@ -243,11 +278,6 @@ export function AiScannerScreen({ ingredients, onBack, onUpdatePrices }: AiScann
       const next = prev.map((item, i) => {
         if (i !== index) return item
 
-        if (!item.selected && item.ingredientId == null) {
-          toast.error("Vincule um ingrediente antes de selecionar este item")
-          return item
-        }
-
         const toggled = { ...item, selected: !item.selected }
 
         if (!toggled.selected) {
@@ -281,7 +311,27 @@ export function AiScannerScreen({ ingredients, onBack, onUpdatePrices }: AiScann
     const sanitized = value.replace(/,/g, ".")
     const parsed = Number.parseFloat(sanitized)
     const numValue = Number.isFinite(parsed) ? parsed : 0
-    setScannedItems(scannedItems.map((item, i) => (i === index ? { ...item, [field]: numValue } : item)))
+    setScannedItems((prev) => prev.map((item, i) => (i === index ? { ...item, [field]: numValue } : item)))
+  }
+
+  const handleNameChange = (index: number, value: string) => {
+    setScannedItems((prev) =>
+      prev.map((item, i) => (i === index ? { ...item, ingredientName: value } : item)),
+    )
+  }
+
+  const handleUnitChange = (index: number, value: string) => {
+    setScannedItems((prev) =>
+      prev.map((item, i) =>
+        i === index
+          ? {
+              ...item,
+              unit: normalizeUnit(value),
+              resolvedUnit: normalizeUnit(value),
+            }
+          : item,
+      ),
+    )
   }
 
   const handleIngredientChange = (index: number, ingredientId: number | null) => {
@@ -303,14 +353,17 @@ export function AiScannerScreen({ ingredients, onBack, onUpdatePrices }: AiScann
           }
         }
 
-        const ingredient = ingredients.find((ing) => ing.id === ingredientId)
+        const ingredient = availableIngredients.find((ing) => ing.id === ingredientId)
         const filteredIssues = (item.issues ?? []).filter((issue) => issue !== "unmatched_ingredient")
+
+        const resolvedUnit = normalizeUnit(ingredient?.unitOfMeasure ?? item.resolvedUnit)
 
         return {
           ...item,
           ingredientId,
           ingredientName: ingredient?.name ?? item.ingredientName,
-          unit: ingredient?.unitOfMeasure ?? item.unit,
+          unit: resolvedUnit,
+          resolvedUnit,
           selected: true,
           autoMatched: false,
           issues: filteredIssues.length ? filteredIssues : undefined,
@@ -338,20 +391,19 @@ export function AiScannerScreen({ ingredients, onBack, onUpdatePrices }: AiScann
   }
 
   const handleConfirmUpdates = async () => {
-    const updates = scannedItems
-      .filter((item) => item.selected && item.ingredientId != null)
-      .map((item) => ({
-        ingredientId: item.ingredientId as number,
-        newCost: item.newCost,
-        newAmount: item.newAmount,
-      }))
-
-    if (!updates.length) {
-      toast.error("Selecione pelo menos um ingrediente válido para atualizar")
+    if (!token) {
+      toast.error("Sessão expirada. Entre novamente para atualizar os preços.")
       return
     }
 
-    const invalidEntry = updates.find((item) => item.newCost <= 0 || item.newAmount <= 0)
+    const selectedItems = scannedItems.filter((item) => item.selected)
+
+    if (!selectedItems.length) {
+      toast.error("Selecione pelo menos um item para atualizar ou cadastrar")
+      return
+    }
+
+    const invalidEntry = selectedItems.find((item) => item.newCost <= 0 || item.newAmount <= 0)
     if (invalidEntry) {
       toast.error("Revise os valores: custo e quantidade devem ser maiores que zero")
       return
@@ -359,8 +411,111 @@ export function AiScannerScreen({ ingredients, onBack, onUpdatePrices }: AiScann
 
     setSaving(true)
     try {
+      let workingItems = scannedItems.map((item) => ({
+        ...item,
+        issues: item.issues ? [...item.issues] : undefined,
+      }))
+
+      const itemsToCreate = selectedItems.filter((item) => item.ingredientId == null)
+      let newlyCreatedIngredients: Ingredient[] = []
+
+      if (itemsToCreate.length) {
+        const missingName = itemsToCreate.find((item) => !item.ingredientName.trim())
+        if (missingName) {
+          toast.error("Informe um nome para os ingredientes sem correspondência")
+          setSaving(false)
+          return
+        }
+
+        const creationPayload = itemsToCreate.map((item) => ({
+          clientItemId: item.clientItemId,
+          name: item.ingredientName.trim(),
+          detectedName: item.detectedName || undefined,
+          unitOfMeasure: normalizeUnit(item.resolvedUnit),
+          totalCost: item.newCost,
+          totalAmount: item.newAmount,
+        }))
+
+        const creationResponse = await createDetectedIngredients(token, creationPayload)
+
+        if (creationResponse.created.length !== creationPayload.length) {
+          throw new Error("Não foi possível correlacionar os ingredientes criados")
+        }
+
+        const idByClientId = new Map<string, number>()
+        newlyCreatedIngredients = creationResponse.created.map((created, index) => {
+          const source = creationPayload[index]
+          const ingredientId = created.ingredientId
+          const lookupKey = created.clientItemId ?? source.clientItemId ?? String(index)
+          if (lookupKey) {
+            idByClientId.set(lookupKey, ingredientId)
+          }
+
+          return {
+            id: ingredientId,
+            name: source.name,
+            unitOfMeasure: normalizeUnit(source.unitOfMeasure),
+            totalCost: source.totalCost,
+            totalAmount: source.totalAmount,
+            costPerUnit: source.totalAmount > 0 ? source.totalCost / source.totalAmount : 0,
+            category: null,
+          }
+        })
+
+        workingItems = workingItems.map((item) => {
+          if (!item.selected || item.ingredientId != null) {
+            return item
+          }
+
+          const ingredientId = idByClientId.get(item.clientItemId)
+          if (!ingredientId) {
+            return item
+          }
+
+          const filteredIssues = (item.issues ?? []).filter((issue) => issue !== "unmatched_ingredient")
+          return {
+            ...item,
+            ingredientId,
+            autoMatched: true,
+            issues: filteredIssues.length ? filteredIssues : undefined,
+          }
+        })
+
+        if (newlyCreatedIngredients.length) {
+          setAvailableIngredients((prev) => {
+            const incomingMap = new Map(newlyCreatedIngredients.map((ingredient) => [ingredient.id, ingredient]))
+            const existingIds = new Set(prev.map((ingredient) => ingredient.id))
+
+            const updated = prev.map((ingredient) => incomingMap.get(ingredient.id) ?? ingredient)
+            newlyCreatedIngredients.forEach((ingredient) => {
+              if (!existingIds.has(ingredient.id)) {
+                updated.push(ingredient)
+              }
+            })
+            return updated
+          })
+        }
+      }
+
+      setScannedItems(workingItems)
+
+      const updates = workingItems
+        .filter((item) => item.selected && item.ingredientId != null)
+        .map((item) => ({
+          ingredientId: item.ingredientId as number,
+          newCost: item.newCost,
+          newAmount: item.newAmount,
+        }))
+
+      if (!updates.length) {
+        toast.error("Selecione pelo menos um ingrediente válido para atualizar")
+        setSaving(false)
+        return
+      }
+
       await onUpdatePrices({
         updates,
+        createdIngredients: newlyCreatedIngredients,
         supplierName,
         supplierTaxId,
         invoiceNumber,
@@ -377,9 +532,9 @@ export function AiScannerScreen({ ingredients, onBack, onUpdatePrices }: AiScann
     }
   }
 
-  const selectedCount = scannedItems.filter((item) => item.selected && item.ingredientId != null).length
-  const needsAttentionCount = scannedItems.filter((item) => !item.autoMatched || item.issues?.length || item.ingredientId == null)
-  const pendingItems = needsAttentionCount.length
+  const selectedCount = scannedItems.filter((item) => item.selected).length
+  const needsAttentionItems = scannedItems.filter((item) => item.issues?.length || item.ingredientId == null)
+  const pendingItems = needsAttentionItems.length
 
   const costPerUnit = (item: InvoiceItem) => {
     if (!item.newAmount || item.newAmount <= 0) {
@@ -555,6 +710,36 @@ export function AiScannerScreen({ ingredients, onBack, onUpdatePrices }: AiScann
                         <div className="space-y-1">
                           <h3 className="text-lg font-semibold text-foreground">{item.ingredientName}</h3>
                           <p className="text-xs text-muted-foreground">Detectado: {item.detectedName}</p>
+                          {item.ingredientId == null && (
+                            <div className="grid grid-cols-1 gap-2 mt-3">
+                              <div className="space-y-1">
+                                <label className="text-xs text-muted-foreground">Nome do ingrediente</label>
+                                <Input
+                                  value={item.ingredientName}
+                                  onChange={(event) => handleNameChange(index, event.target.value)}
+                                  className="h-9 text-sm"
+                                />
+                              </div>
+                              <div className="space-y-1">
+                                <label className="text-xs text-muted-foreground">Unidade de medida</label>
+                                <Select
+                                  value={item.resolvedUnit || undefined}
+                                  onValueChange={(value: string) => handleUnitChange(index, value)}
+                                >
+                                  <SelectTrigger className="h-9 text-sm">
+                                    <SelectValue placeholder="Selecione" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {UNIT_SELECTIONS.map((option) => (
+                                      <SelectItem key={option} value={option}>
+                                        {option}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            </div>
+                          )}
                           <div className="mt-2">
                             <label className="text-xs text-muted-foreground" htmlFor={`ingredient-select-${index}`}>
                               Vincular ao ingrediente
@@ -571,7 +756,7 @@ export function AiScannerScreen({ ingredients, onBack, onUpdatePrices }: AiScann
                               className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
                             >
                               <option value="">Selecionar ingrediente</option>
-                              {ingredients.map((ingredient) => (
+                              {availableIngredients.map((ingredient) => (
                                 <option key={ingredient.id} value={ingredient.id}>
                                   {ingredient.name}
                                 </option>
@@ -591,7 +776,8 @@ export function AiScannerScreen({ ingredients, onBack, onUpdatePrices }: AiScann
                         <div className="flex flex-wrap gap-2 mt-2">
                           {!item.autoMatched && (
                             <Badge variant="outline" className="text-destructive border-destructive/40">
-                              <AlertTriangle className="w-3 h-3" /> Revisar manualmente
+                              <AlertTriangle className="w-3 h-3" />
+                              Revisar manualmente
                             </Badge>
                           )}
                           {item.issues?.map((issue) => (

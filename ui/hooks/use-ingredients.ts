@@ -116,6 +116,50 @@ export function useIngredients() {
     [token],
   )
 
+  const mergeIngredients = useCallback((incoming: Ingredient[]) => {
+    if (!incoming?.length) {
+      return
+    }
+
+    setIngredients((prev) => {
+      if (!prev.length) {
+        return incoming.slice().sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'))
+      }
+
+      let changed = false
+      const merged = [...prev]
+
+      incoming.forEach((ingredient) => {
+        const index = merged.findIndex((item) => item.id === ingredient.id)
+
+        if (index === -1) {
+          merged.push(ingredient)
+          changed = true
+          return
+        }
+
+        const existing = merged[index]
+        if (
+          existing.name !== ingredient.name ||
+          existing.unitOfMeasure !== ingredient.unitOfMeasure ||
+          existing.totalCost !== ingredient.totalCost ||
+          existing.totalAmount !== ingredient.totalAmount ||
+          existing.costPerUnit !== ingredient.costPerUnit ||
+          existing.category !== ingredient.category
+        ) {
+          merged[index] = ingredient
+          changed = true
+        }
+      })
+
+      if (!changed) {
+        return prev
+      }
+
+      return merged.sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'))
+    })
+  }, [])
+
   return {
     ingredients,
     loading,
@@ -125,5 +169,6 @@ export function useIngredients() {
     createIngredient: handleCreate,
     updateIngredient: handleUpdate,
     deleteIngredient: handleDelete,
+    mergeIngredients,
   }
 }

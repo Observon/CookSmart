@@ -24,14 +24,15 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import type {
+import {
   CreateIngredientPayload,
+  CreatePurchasePayload,
   CreateRecipePayload,
+  Ingredient,
   Recipe,
   UpdateIngredientPayload,
   UpdateRecipePayload,
-  CreatePurchasePayload,
-} from "@/lib/types";
+} from '@/lib/types';
 
 import { createPurchase } from "@/lib/services/purchases";
 import { toast } from "sonner";
@@ -118,6 +119,7 @@ export default function Home() {
     createIngredient,
     updateIngredient,
     deleteIngredient,
+    mergeIngredients,
   } = useIngredients();
   const {
     recipes,
@@ -315,6 +317,7 @@ export default function Home() {
 
   const handleUpdateIngredientPrices = async ({
     updates,
+    createdIngredients,
     supplierName,
     supplierTaxId,
     invoiceNumber,
@@ -324,6 +327,7 @@ export default function Home() {
     receiptImageKey,
   }: {
     updates: Array<{ ingredientId: number; newCost: number; newAmount: number }>;
+    createdIngredients?: Ingredient[];
     supplierName?: string | null;
     supplierTaxId?: string | null;
     invoiceNumber?: string | null;
@@ -356,6 +360,10 @@ export default function Home() {
           )
         )
       );
+
+      if (createdIngredients?.length) {
+        mergeIngredients(createdIngredients);
+      }
 
       const fallbackTotal = normalizedUpdates.reduce((acc, item) => acc + item.newCost, 0);
       const normalizedTotalAmount =

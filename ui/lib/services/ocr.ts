@@ -42,3 +42,31 @@ export async function analyzeInvoice(token: string, file: File): Promise<Analyze
     receiptImageKey: response.receiptImageKey ?? null,
   }
 }
+
+export interface DetectedIngredientInput {
+  clientItemId?: string
+  name: string
+  detectedName?: string
+  unitOfMeasure: string
+  category?: string
+  totalCost: number
+  totalAmount: number
+}
+
+export interface CreateDetectedIngredientsResponse {
+  created: Array<{
+    clientItemId: string | null
+    ingredientId: number
+  }>
+}
+
+export async function createDetectedIngredients(
+  token: string,
+  items: DetectedIngredientInput[],
+): Promise<CreateDetectedIngredientsResponse> {
+  return apiFetch<CreateDetectedIngredientsResponse>('/ocr/detected-ingredients', {
+    method: 'POST',
+    token,
+    body: JSON.stringify({ items }),
+  })
+}
