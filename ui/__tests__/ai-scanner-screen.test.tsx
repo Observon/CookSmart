@@ -209,4 +209,74 @@ describe('AiScannerScreen', () => {
       newAmount: 1,
     })
   })
+
+  it('impede selecionar dois itens para o mesmo ingrediente', async () => {
+    mockedAnalyzeInvoice.mockResolvedValue({
+      items: [
+        {
+          description: 'Farinha tipo 1',
+          total: 20,
+          quantity: 10,
+          unit: 'kg',
+          confidence: 0.95,
+          issues: [],
+        },
+        {
+          description: 'Farinha - Lote diferente',
+          total: 18,
+          quantity: 9,
+          unit: 'kg',
+          confidence: 0.6,
+          issues: [],
+        },
+      ],
+    })
+
+    const { container } = render(
+      <AiScannerScreen ingredients={defaultIngredients} onBack={vi.fn()} onUpdatePrices={vi.fn()} />,
+    )
+
+    const file = new File(['conteudo'], 'nota.png', { type: 'image/png' })
+    const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement
+    fireEvent.change(fileInput, {
+      target: { files: [file] },
+    })
+
+    await waitFor(() => {
+      expect(mockedAnalyzeInvoice).toHaveBeenCalledWith('test-token', file)
+    })
+
+    const checkboxes = await screen.findAllByRole('checkbox')
+    expect(checkboxes).toHaveLength(2)
+
+    await waitFor(() => {
+      expect(checkboxes[0]).toBeChecked()
+      expect(checkboxes[1]).not.toBeChecked()
+    })
+
+    fireEvent.click(checkboxes[0])
+    await waitFor(() => {
+      expect(checkboxes[0]).not.toBeChecked()
+      expect(checkboxes[1]).not.toBeChecked()
+    })
+
+    fireEvent.click(checkboxes[1])
+
+    await waitFor(() => {
+      expect(checkboxes[1]).toBeChecked()
+      expect(checkboxes[0]).not.toBeChecked()
+    })
+
+    fireEvent.click(checkboxes[0])
+
+    await waitFor(() => {
+      expect(checkboxes[0]).toBeChecked()
+      expect(checkboxes[1]).not.toBeChecked()
+    })
+
+    const confirmButton = await screen.findByRole('button', {
+      name: /Atualizar 1/i,
+    })
+    expect(confirmButton).toBeInTheDocument()
+  })
 })

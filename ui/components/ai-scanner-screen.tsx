@@ -38,6 +38,61 @@ interface InvoiceItem {
   issues?: string[]
 }
 
+function enforceExclusiveSelections<T extends InvoiceItem>(items: T[], preferredIndex?: number): T[] {
+  const result = items.map((item) => ({ ...item })) as T[]
+  const grouped = new Map<number, number[]>()
+
+  result.forEach((item, index) => {
+    if (!item.selected || item.ingredientId == null) {
+      return
+    }
+
+    const existing = grouped.get(item.ingredientId) ?? []
+    existing.push(index)
+    grouped.set(item.ingredientId, existing)
+  })
+
+  for (const indices of grouped.values()) {
+    if (indices.length <= 1) {
+      continue
+    }
+
+    let preferred = indices[0]
+
+    if (preferredIndex != null && indices.includes(preferredIndex)) {
+      preferred = preferredIndex
+    } else {
+      preferred = indices.reduce((best, current) => {
+        const bestItem = result[best]
+        const currentItem = result[current]
+        const bestConfidence = bestItem.confidence ?? 0
+        const currentConfidence = currentItem.confidence ?? 0
+
+        if (currentConfidence > bestConfidence) {
+          return current
+        }
+
+        if (currentConfidence === bestConfidence && current < best) {
+          return current
+        }
+
+        return best
+      }, indices[0])
+    }
+
+    indices.forEach((index) => {
+      if (index !== preferred) {
+        result[index] = {
+          ...result[index],
+          selected: false,
+        }
+      }
+    })
+  }
+
+  return result
+}
+
 function generateClientItemId(): string {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
     return crypto.randomUUID()
@@ -247,7 +302,9 @@ export function AiScannerScreen({ ingredients, onBack, onUpdatePrices }: AiScann
         })
       }
 
-      setScannedItems(normalizedItems)
+      const deduplicatedItems = enforceExclusiveSelections(normalizedItems)
+
+      setScannedItems(deduplicatedItems)
       setSupplierName(response.supplierName ?? null)
       setInvoiceNumber(response.invoiceNumber ?? null)
       setTotalAmount(response.totalAmount ?? null)
@@ -275,35 +332,16 @@ export function AiScannerScreen({ ingredients, onBack, onUpdatePrices }: AiScann
 
   const handleToggleItem = (index: number) => {
     setScannedItems((prev) => {
+      let isNowSelected = false
       const next = prev.map((item, i) => {
         if (i !== index) return item
 
         const toggled = { ...item, selected: !item.selected }
-
-        if (!toggled.selected) {
-          return toggled
-        }
-
+        isNowSelected = toggled.selected
         return toggled
       })
 
-      const current = next[index]
-
-      if (current.selected && current.ingredientId != null) {
-        return next.map((item, i) => {
-          if (i === index) {
-            return item
-          }
-
-          if (item.ingredientId === current.ingredientId) {
-            return { ...item, selected: false }
-          }
-
-          return item
-        })
-      }
-
-      return next
+      return enforceExclusiveSelections(next, isNowSelected ? index : undefined)
     })
   }
 
@@ -372,21 +410,7 @@ export function AiScannerScreen({ ingredients, onBack, onUpdatePrices }: AiScann
 
       const current = next[index]
 
-      if (current.selected && current.ingredientId != null) {
-        return next.map((item, i) => {
-          if (i === index) {
-            return item
-          }
-
-          if (item.ingredientId === current.ingredientId) {
-            return { ...item, selected: false }
-          }
-
-          return item
-        })
-      }
-
-      return next
+      return enforceExclusiveSelections(next, current.selected ? index : undefined)
     })
   }
 
@@ -496,6 +520,8 @@ export function AiScannerScreen({ ingredients, onBack, onUpdatePrices }: AiScann
           })
         }
       }
+
+      workingItems = enforceExclusiveSelections(workingItems)
 
       setScannedItems(workingItems)
 
