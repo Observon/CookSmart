@@ -155,6 +155,7 @@ export function AiScannerScreen({ ingredients, onBack, onUpdatePrices }: AiScann
   const [uploadError, setUploadError] = useState<string | null>(null)
   const [selectedFileName, setSelectedFileName] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  const [activeCaptureAction, setActiveCaptureAction] = useState<"camera" | "gallery" | null>(null)
 
   const fileInputRef = useRef<HTMLInputElement | null>(null)
 
@@ -210,6 +211,9 @@ export function AiScannerScreen({ ingredients, onBack, onUpdatePrices }: AiScann
     if (!fileInputRef.current) {
       return
     }
+
+    setActiveCaptureAction(captureCamera ? "camera" : "gallery")
+
     if (captureCamera) {
       fileInputRef.current.setAttribute("capture", "environment")
     } else {
@@ -221,6 +225,7 @@ export function AiScannerScreen({ ingredients, onBack, onUpdatePrices }: AiScann
   const handleFileSelected = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     if (!file) {
+      setActiveCaptureAction(null)
       return
     }
 
@@ -327,6 +332,7 @@ export function AiScannerScreen({ ingredients, onBack, onUpdatePrices }: AiScann
       toast.error(message)
     } finally {
       setIsScanning(false)
+      setActiveCaptureAction(null)
     }
   }
 
@@ -611,12 +617,12 @@ export function AiScannerScreen({ ingredients, onBack, onUpdatePrices }: AiScann
                     disabled={isScanning}
                     className="h-12 bg-primary hover:bg-primary/90 text-primary-foreground"
                   >
-                    {isScanning ? (
+                    {isScanning && activeCaptureAction === "camera" ? (
                       <Loader2 className="w-5 h-5 mr-2 animate-spin" />
                     ) : (
                       <Camera className="w-5 h-5 mr-2" />
                     )}
-                    {isScanning ? "Processando..." : "Tirar Foto"}
+                    {isScanning && activeCaptureAction === "camera" ? "Processando..." : "Tirar Foto"}
                   </Button>
                   <Button
                     onClick={() => handleTriggerCapture(false)}
@@ -624,12 +630,12 @@ export function AiScannerScreen({ ingredients, onBack, onUpdatePrices }: AiScann
                     variant="outline"
                     className="h-12 bg-transparent"
                   >
-                    {isScanning ? (
+                    {isScanning && activeCaptureAction === "gallery" ? (
                       <Loader2 className="w-5 h-5 mr-2 animate-spin" />
                     ) : (
                       <Upload className="w-5 h-5 mr-2" />
                     )}
-                    {isScanning ? "Processando..." : "Escolher da Galeria"}
+                    {isScanning && activeCaptureAction === "gallery" ? "Processando..." : "Escolher da Galeria"}
                   </Button>
                   {uploadError && <p className="text-xs text-destructive">{uploadError}</p>}
                   {selectedFileName && (
