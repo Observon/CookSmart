@@ -5,7 +5,7 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { ChefHat } from "lucide-react"
+import { ChefHat, Eye, EyeOff } from "lucide-react"
 import { ForgotPasswordScreen } from "@/components/forgot-password-screen"
 import { apiFetch } from "@/lib/http"
 import { useAuth } from "@/context/auth-context"
@@ -18,6 +18,7 @@ export function LoginScreen() {
   const [password, setPassword] = useState("")
   const [phone, setPhone] = useState("")
   const [error, setError] = useState<string | null>(null)
+  const [showPassword, setShowPassword] = useState(false)
   const { login, register, loading } = useAuth()
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -112,15 +113,30 @@ export function LoginScreen() {
               <Label htmlFor="password" className="text-foreground">
                 Senha
               </Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="h-12 text-base bg-card"
-                required
-              />
+              <div className="relative">
+                <Input
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="h-12 text-base bg-card pr-12"
+                  required
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => setShowPassword((prev) => !prev)}
+                  className="absolute inset-y-0 right-2 self-center flex items-center justify-center text-muted-foreground hover:text-foreground"
+                  aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
+                >
+                  {showPassword ? (
+                    <EyeOff className="h-5 w-5" aria-hidden="true" />
+                  ) : (
+                    <Eye className="h-5 w-5" aria-hidden="true" />
+                  )}
+                </Button>
+              </div>
             </div>
 
             {mode === "register" && (

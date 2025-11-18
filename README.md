@@ -44,22 +44,35 @@ CookSmart é uma aplicação que ajuda pequenos empreendedores a definir o preç
 
 ```
 CookSmart/
-├── api/                    # Backend NestJS
-│   ├── prisma/            # Schema e migrações do banco
-│   ├── src/               # Código-fonte
-│   │   ├── auth/          # Autenticação JWT
-│   │   ├── ingredients/   # Gestão de ingredientes
-│   │   ├── recipes/       # Gestão de receitas
-│   │   ├── purchases/     # Gestão de compras
-│   │   └── operational-expenses/  # Despesas operacionais
-│   └── test/              # Testes E2E
-├── ui/                    # Frontend Next.js
-│   ├── app/               # Rotas e páginas (App Router)
-│   ├── components/        # Componentes React
-│   ├── hooks/             # Custom hooks
-│   ├── lib/               # Serviços e utilitários
-│   └── context/           # Context providers
-└── documents/             # Documentação adicional
+├── api/                              # Backend NestJS
+│   ├── prisma/                       # Schema do Prisma + migrações
+│   │   ├── migrations/
+│   │   └── schema.prisma
+│   ├── src/
+│   │   ├── auth/                     # Auth local com suporte a reset via Supabase
+│   │   ├── common/                   # Filtros, interceptors e helpers globais
+│   │   ├── ingredients/              # Casos de uso de ingredientes
+│   │   ├── ocr/                      # Integração Amazon Textract
+│   │   ├── operational-expenses/     # Despesas operacionais
+│   │   ├── purchases/                # Compras e histórico de notas
+│   │   └── recipes/                  # CRUD de receitas e margem de lucro
+│   ├── test/                         # Testes E2E (Jest)
+│   ├── package.json                  # Scripts e dependências do backend
+│   └── tsconfig*.json                # Configurações TypeScript/Nest
+├── ui/                               # Frontend Next.js 14 (App Router)
+│   ├── app/                          # Rotas, layouts e reset de senha
+│   │   └── reset-password/           # Fluxo de redefinição de senha
+│   ├── components/                   # Telas e componentes reutilizáveis
+│   │   └── ui/                       # Design system baseado em Radix/Tailwind
+│   ├── context/                      # Providers (ex.: AuthProvider)
+│   ├── hooks/                        # Hooks de dados (ingredientes, receitas, etc.)
+│   ├── lib/                          # Serviços de API, Supabase client, utilitários
+│   ├── __tests__/                    # Testes Vitest + RTL
+│   ├── package.json                  # Scripts e dependências do frontend
+│   └── vitest.config.ts              # Configuração de testes
+├── documents/                        # Diagramas e guias complementares
+├── pnpm-workspace.yaml               # Configuração do monorepo
+└── README.md                         # Este documento
 ```
 
 ## 🚀 Instalação e Configuração

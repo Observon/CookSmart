@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { LoginScreen } from "@/components/login-screen";
 import { RecipeListScreen } from "@/components/recipe-list-screen";
 import { RecipeFormScreen } from "@/components/recipe-form-screen";
+import type { RecipeFormDraft } from "@/components/recipe-form-screen";
 import { IngredientFormScreen } from "@/components/ingredient-form-screen";
 import { RecipeDetailScreen } from "@/components/recipe-detail-screen";
 import { IngredientsListScreen } from "@/components/ingredients-list-screen";
@@ -110,6 +111,14 @@ export const normalizePurchaseDate = (rawDate?: string | null) => {
   return new Date().toISOString().slice(0, 10);
 };
 
+const createEmptyRecipeDraft = (): RecipeFormDraft => ({
+  name: "",
+  description: "",
+  servings: "",
+  profitMargin: "200",
+  selectedIngredients: [],
+});
+
 export default function Home() {
   const { token, user, logout, loading: authLoading, initializing } = useAuth();
   const {
@@ -152,6 +161,9 @@ export default function Home() {
   );
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showTutorial, setShowTutorial] = useState(false);
+  const [recipeDraft, setRecipeDraft] = useState<RecipeFormDraft>(
+    createEmptyRecipeDraft()
+  );
 
   const selectedRecipe = useMemo<Recipe | null>(
     () =>
@@ -198,6 +210,8 @@ export default function Home() {
       setShowOnboarding(false);
       setShowTutorial(false);
       return;
+      setPrevScreen(null);
+      setRecipeDraft(createEmptyRecipeDraft());
     }
 
     const onboardingKey = `${ONBOARDING_COMPLETED_KEY}_${user.id}`;
@@ -282,11 +296,33 @@ export default function Home() {
       }
     }
 
+    setPrevScreen(null);
     setCurrentScreen("list");
+    setRecipeDraft(createEmptyRecipeDraft());
   };
 
   const handleEditRecipe = (recipe: Recipe) => {
     setEditingRecipeId(recipe.id);
+    setRecipeDraft({
+      name: recipe.name ?? "",
+      description: recipe.description ?? "",
+      servings: recipe.servings ? String(recipe.servings) : "",
+      profitMargin: Number.isFinite(recipe.profitMargin)
+        ? String(recipe.profitMargin)
+        : "200",
+      selectedIngredients: recipe.ingredients.map((detail) => {
+        const freshIngredient =
+          ingredients.find((item) => item.id === detail.ingredientId) ??
+          detail.ingredient;
+
+        return {
+          ingredientId: detail.ingredientId,
+          ingredient: freshIngredient,
+          quantity: detail.quantity,
+        };
+      }),
+    });
+    setPrevScreen(null);
     setCurrentScreen("add-recipe");
   };
 
@@ -459,6 +495,8 @@ export default function Home() {
           recipes={recipes}
           onAddRecipe={() => {
             setEditingRecipeId(null);
+            setRecipeDraft(createEmptyRecipeDraft());
+            setPrevScreen(null);
             setCurrentScreen("add-recipe");
           }}
           onViewRecipe={handleViewRecipe}
@@ -481,15 +519,19 @@ export default function Home() {
           onSave={handleSaveRecipe}
           onCancel={() => {
             setEditingRecipeId(null);
+            setRecipeDraft(createEmptyRecipeDraft());
+            setPrevScreen(null);
             setCurrentScreen("list");
           }}
           onAddIngredient={() => {
-            setPrevScreen(currentScreen);
+            setPrevScreen("add-recipe");
             setEditingIngredientId(null);
             setCurrentScreen("add-ingredient");
           }}
           editingRecipe={editingRecipe}
           loading={recipesLoading || recipesSaving}
+          draft={recipeDraft}
+          onDraftChange={setRecipeDraft}
         />
       )}
 
