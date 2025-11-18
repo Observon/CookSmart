@@ -9,6 +9,8 @@ import { IngredientFormScreen } from "@/components/ingredient-form-screen";
 import { RecipeDetailScreen } from "@/components/recipe-detail-screen";
 import { IngredientsListScreen } from "@/components/ingredients-list-screen";
 import { AiScannerScreen } from "@/components/ai-scanner-screen";
+import { OnboardingScreen } from "@/components/onboarding-screen";
+import { TutorialOverlay } from "@/components/tutorial-overlay";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/auth-context";
 import { useIngredients } from "@/hooks/use-ingredients";
@@ -23,17 +25,53 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import type {
+import {
   CreateIngredientPayload,
+  CreatePurchasePayload,
   CreateRecipePayload,
+  Ingredient,
   Recipe,
   UpdateIngredientPayload,
   UpdateRecipePayload,
-  CreatePurchasePayload,
-} from "@/lib/types";
+} from '@/lib/types';
 
 import { createPurchase } from "@/lib/services/purchases";
 import { toast } from "sonner";
+
+const ONBOARDING_COMPLETED_KEY = "cooksmart_onboarding_completed";
+const TUTORIAL_COMPLETED_KEY = "cooksmart_tutorial_completed";
+
+const TUTORIAL_STEPS = [
+  {
+    target: '[data-tutorial="welcome-header"]',
+    title: "Visão geral",
+    description: "Aqui você acompanha seu acesso e encontra atalhos importantes.",
+    position: "bottom",
+  },
+  {
+    target: '[data-tutorial="manage-ingredients"]',
+    title: "Gerencie ingredientes",
+    description: "Acesse sua lista de ingredientes para manter os custos atualizados.",
+    position: "left",
+  },
+  {
+    target: '[data-tutorial="recipes-list"]',
+    title: "Suas receitas",
+    description: "Visualize o custo, margem e preço sugerido de cada receita cadastrada.",
+    position: "top",
+  },
+  {
+    target: '[data-tutorial="add-recipe"]',
+    title: "Cadastre receitas",
+    description: "Use este botão para criar novas receitas e calcular seus custos.",
+    position: "top",
+  },
+] satisfies Array<{
+  target: string;
+  title: string;
+  description: string;
+  position: "top" | "bottom" | "left" | "right";
+}>;
 
 const roundTo = (value: number, decimals: number) => {
   if (!Number.isFinite(value)) {
@@ -90,6 +128,7 @@ export default function Home() {
     createIngredient,
     updateIngredient,
     deleteIngredient,
+    mergeIngredients,
   } = useIngredients();
   const {
     recipes,
@@ -120,6 +159,8 @@ export default function Home() {
   const [ingredientToDelete, setIngredientToDelete] = useState<number | null>(
     null
   );
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [showTutorial, setShowTutorial] = useState(false);
   const [recipeDraft, setRecipeDraft] = useState<RecipeFormDraft>(
     createEmptyRecipeDraft()
   );
@@ -156,10 +197,73 @@ export default function Home() {
       setSelectedRecipeId(null);
       setEditingRecipeId(null);
       setEditingIngredientId(null);
+      setShowOnboarding(false);
+      setShowTutorial(false);
+      return;
+    }
+
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    if (!user) {
+      setShowOnboarding(false);
+      setShowTutorial(false);
+      return;
       setPrevScreen(null);
       setRecipeDraft(createEmptyRecipeDraft());
     }
-  }, [token]);
+
+    const onboardingKey = `${ONBOARDING_COMPLETED_KEY}_${user.id}`;
+    const tutorialKey = `${TUTORIAL_COMPLETED_KEY}_${user.id}`;
+
+    const onboardingCompleted =
+      window.localStorage.getItem(onboardingKey) === "true";
+    const tutorialCompleted =
+      window.localStorage.getItem(tutorialKey) === "true";
+
+    setShowOnboarding(!onboardingCompleted);
+    setShowTutorial(onboardingCompleted && !tutorialCompleted);
+  }, [token, user]);
+
+  const getStorageKey = (baseKey: string) =>
+    user ? `${baseKey}_${user.id}` : baseKey;
+
+  const completeOnboarding = () => {
+    if (typeof window !== "undefined") {
+      const onboardingKey = getStorageKey(ONBOARDING_COMPLETED_KEY);
+      const tutorialKey = getStorageKey(TUTORIAL_COMPLETED_KEY);
+      window.localStorage.setItem(onboardingKey, "true");
+      const tutorialCompleted = window.localStorage.getItem(tutorialKey) === "true";
+      setShowTutorial(!tutorialCompleted);
+    }
+    setShowOnboarding(false);
+  };
+
+  const completeTutorial = () => {
+    if (typeof window !== "undefined") {
+      const tutorialKey = getStorageKey(TUTORIAL_COMPLETED_KEY);
+      window.localStorage.setItem(tutorialKey, "true");
+    }
+    setShowTutorial(false);
+  };
+
+  const skipTutorial = () => {
+    if (typeof window !== "undefined") {
+      const tutorialKey = getStorageKey(TUTORIAL_COMPLETED_KEY);
+      window.localStorage.setItem(tutorialKey, "true");
+    }
+    setShowTutorial(false);
+  };
+
+  const handleShowTutorial = () => {
+    if (typeof window !== "undefined") {
+      const onboardingKey = getStorageKey(ONBOARDING_COMPLETED_KEY);
+      window.localStorage.setItem(onboardingKey, "true");
+    }
+    setShowOnboarding(false);
+    setShowTutorial(true);
+  };
 
   const handleSaveIngredient = async (
     payload: CreateIngredientPayload | UpdateIngredientPayload
@@ -249,6 +353,7 @@ export default function Home() {
 
   const handleUpdateIngredientPrices = async ({
     updates,
+    createdIngredients,
     supplierName,
     supplierTaxId,
     invoiceNumber,
@@ -258,6 +363,7 @@ export default function Home() {
     receiptImageKey,
   }: {
     updates: Array<{ ingredientId: number; newCost: number; newAmount: number }>;
+    createdIngredients?: Ingredient[];
     supplierName?: string | null;
     supplierTaxId?: string | null;
     invoiceNumber?: string | null;
@@ -290,6 +396,10 @@ export default function Home() {
           )
         )
       );
+
+      if (createdIngredients?.length) {
+        mergeIngredients(createdIngredients);
+      }
 
       const fallbackTotal = normalizedUpdates.reduce((acc, item) => acc + item.newCost, 0);
       const normalizedTotalAmount =
@@ -353,9 +463,16 @@ export default function Home() {
     return <LoginScreen />;
   }
 
+  if (showOnboarding) {
+    return <OnboardingScreen onComplete={completeOnboarding} />;
+  }
+
   return (
     <div className="min-h-screen bg-background">
-      <header className="flex items-center justify-between px-6 py-4 border-b border-border">
+      <header
+        className="flex items-center justify-between px-6 py-4 border-b border-border"
+        data-tutorial="welcome-header"
+      >
         <div>
           <p className="text-sm text-muted-foreground">
             Bem-vindo{user ? `, ${user.name}` : ""}
@@ -384,6 +501,15 @@ export default function Home() {
           }}
           onViewRecipe={handleViewRecipe}
           onManageIngredients={() => setCurrentScreen("ingredients-list")}
+          onShowTutorial={handleShowTutorial}
+        />
+      )}
+
+      {showTutorial && currentScreen === "list" && (
+        <TutorialOverlay
+          steps={TUTORIAL_STEPS}
+          onComplete={completeTutorial}
+          onSkip={skipTutorial}
         />
       )}
 

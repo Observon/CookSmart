@@ -21,6 +21,11 @@ import { promises as fs } from 'node:fs';
 import { join } from 'node:path';
 
 import { AnalyzeInvoiceResponseDto, OcrInvoiceItemDto } from './dto/analyze-invoice-response.dto';
+import {
+  CreateDetectedIngredientsDto,
+  CreateDetectedIngredientsResponseDto,
+} from './dto/create-detected-ingredients.dto';
+import { IngredientsService } from '../ingredients/ingredients.service';
 
 export interface OcrUploadedFile {
   buffer: Buffer;
@@ -47,7 +52,10 @@ export class OcrService {
     'application/pdf',
   ]);
 
-  constructor(private readonly configService: ConfigService) {
+  constructor(
+    private readonly configService: ConfigService,
+    private readonly ingredientsService: IngredientsService,
+  ) {
     const region = this.configService.get<string>('AWS_REGION') ?? 'us-east-1';
     this.textractClient = new TextractClient({ region });
 
@@ -57,6 +65,30 @@ export class OcrService {
 
     const maxMb = Number.parseFloat(this.configService.get<string>('TEXTRACT_MAX_FILE_SIZE_MB', '10'));
     this.maxFileSizeBytes = Number.isFinite(maxMb) && maxMb > 0 ? maxMb * 1024 * 1024 : 10 * 1024 * 1024;
+  }
+
+  async createDetectedIngredients(
+    userId: number,
+    dto: CreateDetectedIngredientsDto,
+  ): Promise<CreateDetectedIngredientsResponseDto> {
+    const created = [] as CreateDetectedIngredientsResponseDto['created'];
+
+    for (const item of dto.items) {
+      const ingredient = await this.ingredientsService.create(userId, {
+        name: item.name,
+        unitOfMeasure: item.unitOfMeasure,
+        category: item.category,
+        totalCost: item.totalCost,
+        totalAmount: item.totalAmount,
+      });
+
+      created.push({
+        clientItemId: item.clientItemId ?? null,
+        ingredientId: ingredient.id,
+      });
+    }
+
+    return { created };
   }
 
   async analyzeInvoice(file: OcrUploadedFile | undefined): Promise<AnalyzeInvoiceResponseDto> {

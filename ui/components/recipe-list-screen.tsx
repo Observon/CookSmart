@@ -2,7 +2,7 @@
 
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
-import { ChefHat, Plus, DollarSign, Package } from "lucide-react"
+import { ChefHat, Plus, DollarSign, Package, HelpCircle } from "lucide-react"
 import type { Recipe } from "@/lib/types"
 
 interface RecipeListScreenProps {
@@ -10,14 +10,21 @@ interface RecipeListScreenProps {
   onAddRecipe: () => void
   onViewRecipe: (recipe: Recipe) => void
   onManageIngredients: () => void
+  onShowTutorial?: () => void
 }
 
-export function RecipeListScreen({ recipes, onAddRecipe, onViewRecipe, onManageIngredients }: RecipeListScreenProps) {
+export function RecipeListScreen({
+  recipes,
+  onAddRecipe,
+  onViewRecipe,
+  onManageIngredients,
+  onShowTutorial,
+}: RecipeListScreenProps) {
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
       <div className="bg-primary text-primary-foreground px-6 py-8 rounded-b-3xl shadow-lg">
-        <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center justify-between mb-2" data-tutorial="recipes-header">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 rounded-full bg-primary-foreground/20 flex items-center justify-center">
               <ChefHat className="w-6 h-6" />
@@ -29,19 +36,33 @@ export function RecipeListScreen({ recipes, onAddRecipe, onViewRecipe, onManageI
               </p>
             </div>
           </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={onManageIngredients}
-            className="text-primary-foreground hover:bg-primary-foreground/20"
-          >
-            <Package className="w-6 h-6" />
-          </Button>
+          <div className="flex items-center gap-2">
+            {onShowTutorial && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={onShowTutorial}
+                className="text-primary-foreground hover:bg-primary-foreground/20"
+                title="Mostrar tutorial"
+              >
+                <HelpCircle className="w-6 h-6" />
+              </Button>
+            )}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onManageIngredients}
+              className="text-primary-foreground hover:bg-primary-foreground/20"
+              data-tutorial="manage-ingredients"
+            >
+              <Package className="w-6 h-6" />
+            </Button>
+          </div>
         </div>
       </div>
 
       {/* Content */}
-      <div className="px-6 py-6 space-y-4">
+      <div className="px-6 py-6 space-y-4" data-tutorial="recipes-list">
         {recipes.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 space-y-4">
             <div className="w-24 h-24 rounded-full bg-muted flex items-center justify-center">
@@ -56,6 +77,7 @@ export function RecipeListScreen({ recipes, onAddRecipe, onViewRecipe, onManageI
             <Button
               onClick={onAddRecipe}
               className="mt-4 h-12 px-8 bg-primary hover:bg-primary/90 text-primary-foreground"
+              data-tutorial="add-recipe"
             >
               <Plus className="w-5 h-5 mr-2" />
               Cadastrar Receita
@@ -104,6 +126,7 @@ export function RecipeListScreen({ recipes, onAddRecipe, onViewRecipe, onManageI
             <Button
               onClick={onAddRecipe}
               className="fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-lg bg-primary hover:bg-primary/90 text-primary-foreground"
+              data-tutorial="add-recipe"
             >
               <Plus className="w-6 h-6" />
             </Button>
