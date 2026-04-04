@@ -10,7 +10,7 @@ CookSmart é uma aplicação que ajuda pequenos empreendedores a definir o preç
 
 - **Gestão de Ingredientes**: Registre ingredientes, insumos e matérias-primas com controle de preços unitários e histórico de compras
 - **Criação de Receitas**: Monte receitas ou produtos finais com cálculo automático dos custos diretos dos insumos utilizados
-- **Custos Operacionais**: Integre custos fixos e variáveis para uma visão realista do preço de produção
+- **Custos Operacionais (Roadmap)**: Planejado para integrar custos fixos e variáveis ao cálculo final
 - **Cálculo Automático**: Calcule automaticamente o custo total e obtenha sugestão de preço de venda baseado na margem de lucro configurada
 - **OCR de Notas Fiscais**: Integração com OCR para leitura automática de notas fiscais, facilitando o lançamento de insumos
 - **Relatórios**: Acompanhe a evolução de custos através de relatórios e históricos detalhados
@@ -251,10 +251,10 @@ Ambos dependem de `useAuth()` para obter o token JWT. Ao integrar novas telas, p
 - Atualização automática de preços dos ingredientes
 - Histórico de transações
 
-### Despesas Operacionais
-- Cadastro de custos fixos e variáveis
-- Integração no cálculo de preço final
-- Relatórios de despesas
+### Despesas Operacionais (Roadmap)
+- Funcionalidade em planejamento
+- O módulo já existe no backend como estrutura inicial, mas sem endpoints e regras de negócio finais
+- Será integrado ao cálculo de preço final após conclusão do CRUD e relatórios
 
 ## 📸 OCR de Notas Fiscais com Amazon Textract
 
@@ -340,10 +340,9 @@ curl -X POST http://localhost:3000/ocr/textract \
 - Cadastro de ingredientes com nome, unidade de medida e preço unitário
 - Histórico de compras e variação de preços
 
-### Despesas Operacionais
-- Cadastro de custos fixos e variáveis
-- Integração no cálculo de preço final
-- Relatórios de despesas
+### Despesas Operacionais (Roadmap)
+- Funcionalidade prevista para próximas versões
+- Escopo planejado: cadastro de custos fixos/variáveis e impacto no preço sugerido
 
 ## 🤝 Contribuindo
 
@@ -358,6 +357,7 @@ Contribuições são bem-vindas! Para contribuir:
 ## 📝 Próximos Passos
 
 - [x] Implementação do módulo OCR com Amazon Textract e integração com compras
+- [ ] Implementação completa de Despesas Operacionais (CRUD + integração no cálculo)
 - [ ] Dashboard com gráficos e estatísticas
 - [ ] Exportação de relatórios em PDF
 - [ ] Aplicativo mobile
