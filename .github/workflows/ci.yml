@@ -21,7 +21,7 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v2
         with:
-          version: 8
+          version: 10
 
       - name: Get pnpm store directory
         id: pnpm-cache
@@ -54,7 +54,7 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v2
         with:
-          version: 8
+          version: 10
 
       - name: Get pnpm store directory
         id: pnpm-cache
@@ -107,7 +107,7 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v2
         with:
-          version: 8
+          version: 10
 
       - name: Get pnpm store directory
         id: pnpm-cache
@@ -158,7 +158,7 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v2
         with:
-          version: 8
+          version: 10
 
       - name: Get pnpm store directory
         id: pnpm-cache
@@ -191,6 +191,10 @@ jobs:
     steps:
       - name: Ensure all jobs passed
         run: |
+          echo "lint:      ${{ needs.lint.result }}"
+          echo "test-api:  ${{ needs.test-api.result }}"
+          echo "test-ui:   ${{ needs.test-ui.result }}"
+
           if [ "${{ needs.lint.result }}" != "success" ] || \
              [ "${{ needs.test-api.result }}" != "success" ] || \
              [ "${{ needs.test-ui.result }}" != "success" ]; then
