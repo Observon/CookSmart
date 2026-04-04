@@ -1,6 +1,6 @@
 ## CookSmart API
 
-Backend em NestJS responsável por autenticação, cadastro de insumos, receitas, compras e OCR do CookSmart, com estrutura inicial para despesas operacionais em roadmap.
+Backend em NestJS responsável por autenticação, cadastro de insumos, receitas, compras e OCR do CookSmart. As despesas operacionais seguem como roadmap.
 
 ### Requisitos
 
@@ -97,7 +97,7 @@ curl -X POST http://localhost:3000/ocr/textract \
 
 ### Roadmap
 
-- **Despesas operacionais**: implementação completa do módulo (`operational-expenses`) com CRUD e integração ao cálculo de preço.
+- **Despesas operacionais**: previsão de implementação do módulo (`operational-expenses`) com CRUD e integração ao cálculo de preço.
 - **Dashboard de métricas**: endpoints agregados para consumo pelo frontend.
 - **Integração com notificações**: alertas de OCR e variação de custos.
 - **Pipelines CI/CD**: automação de testes e deploy.

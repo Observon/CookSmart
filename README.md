@@ -87,7 +87,7 @@ CookSmart/
 
 1. **Clone o repositório**
    ```bash
-   git clone https://github.com/Observon/CookSmart.git
+  git clone <REPOSITORY_URL>
    cd CookSmart
    ```
 
@@ -333,16 +333,6 @@ curl -X POST http://localhost:3000/ocr/textract \
   -H "Authorization: Bearer <TOKEN>" \
   -F file=@nota-fiscal.pdf
 ```
-
-## 📊 Funcionalidades Principais
-
-### Gestão de Ingredientes
-- Cadastro de ingredientes com nome, unidade de medida e preço unitário
-- Histórico de compras e variação de preços
-
-### Despesas Operacionais (Roadmap)
-- Funcionalidade prevista para próximas versões
-- Escopo planejado: cadastro de custos fixos/variáveis e impacto no preço sugerido
 
 ## 🤝 Contribuindo
 
