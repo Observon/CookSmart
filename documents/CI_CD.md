@@ -19,7 +19,7 @@ O pipeline é acionado automaticamente em:
 - **Ações**:
   - Configura Node.js 20
   - Instala pnpm 8
-  - Downalod de cache do pnpm
+  - Download de cache do pnpm
   - Instala dependências com `pnpm install --frozen-lockfile`
 
 ### 2. `lint`
