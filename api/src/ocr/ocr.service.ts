@@ -19,13 +19,14 @@ import {
 import { randomUUID } from 'node:crypto';
 import { promises as fs } from 'node:fs';
 import { join } from 'node:path';
+import { Prisma } from '@prisma/client';
 
 import { AnalyzeInvoiceResponseDto, OcrInvoiceItemDto } from './dto/analyze-invoice-response.dto';
 import {
   CreateDetectedIngredientsDto,
   CreateDetectedIngredientsResponseDto,
 } from './dto/create-detected-ingredients.dto';
-import { IngredientsService } from '../ingredients/ingredients.service';
+import { PrismaService } from '../prisma/prisma.service';
 
 export interface OcrUploadedFile {
   buffer: Buffer;
@@ -54,7 +55,7 @@ export class OcrService {
 
   constructor(
     private readonly configService: ConfigService,
-    private readonly ingredientsService: IngredientsService,
+    private readonly prisma: PrismaService,
   ) {
     const region = this.configService.get<string>('AWS_REGION') ?? 'us-east-1';
     this.textractClient = new TextractClient({ region });
@@ -74,12 +75,16 @@ export class OcrService {
     const created = [] as CreateDetectedIngredientsResponseDto['created'];
 
     for (const item of dto.items) {
-      const ingredient = await this.ingredientsService.create(userId, {
-        name: item.name,
-        unitOfMeasure: item.unitOfMeasure,
-        category: item.category,
-        totalCost: item.totalCost,
-        totalAmount: item.totalAmount,
+      const ingredient = await this.prisma.ingredient.create({
+        data: {
+          userId,
+          name: item.name,
+          unitOfMeasure: item.unitOfMeasure,
+          category: item.category ?? null,
+          totalCost: new Prisma.Decimal(0),
+          totalAmount: new Prisma.Decimal(0),
+          costPerUnit: new Prisma.Decimal(0),
+        },
       });
 
       created.push({

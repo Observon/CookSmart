@@ -1,6 +1,6 @@
 ## CookSmart API
 
-Backend em NestJS responsável por autenticação, cadastro de insumos, receitas, compras e despesas operacionais do CookSmart.
+Backend em NestJS responsável por autenticação, cadastro de insumos, receitas, compras e OCR do CookSmart, com estrutura inicial para despesas operacionais em roadmap.
 
 ### Requisitos
 
@@ -93,10 +93,11 @@ curl -X POST http://localhost:3000/ocr/textract \
 ### Documentação da API
 
 - Swagger disponível em `http://localhost:3000/docs` após iniciar o servidor (`pnpm run start:dev`).
-- Principais módulos já implementados: `auth`, `ingredients`, `recipes`, `purchases`, `operational-expenses`, `ocr` e `prisma`.
+- Principais módulos já implementados: `auth`, `ingredients`, `recipes`, `purchases`, `ocr` e `prisma`.
 
 ### Roadmap
 
+- **Despesas operacionais**: implementação completa do módulo (`operational-expenses`) com CRUD e integração ao cálculo de preço.
 - **Dashboard de métricas**: endpoints agregados para consumo pelo frontend.
 - **Integração com notificações**: alertas de OCR e variação de custos.
 - **Pipelines CI/CD**: automação de testes e deploy.

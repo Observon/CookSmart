@@ -4,9 +4,7 @@ import {
   ArrayMinSize,
   IsArray,
   IsNotEmpty,
-  IsNumber,
   IsOptional,
-  IsPositive,
   IsString,
   MaxLength,
   ValidateNested,
@@ -43,16 +41,6 @@ export class DetectedIngredientItemDto {
   @IsString()
   @MaxLength(100)
   category?: string;
-
-  @ApiProperty({ description: 'Custo total pago pelo ingrediente', example: 12.5, type: Number })
-  @IsNumber({ maxDecimalPlaces: 2 })
-  @IsPositive()
-  totalCost!: number;
-
-  @ApiProperty({ description: 'Quantidade total adquirida', example: 1.25, type: Number })
-  @IsNumber({ maxDecimalPlaces: 4 })
-  @IsPositive()
-  totalAmount!: number;
 }
 
 export class CreateDetectedIngredientsDto {

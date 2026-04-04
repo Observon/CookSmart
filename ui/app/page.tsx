@@ -125,10 +125,10 @@ export default function Home() {
     ingredients,
     loading: ingredientsLoading,
     saving: ingredientsSaving,
+    refresh: refreshIngredients,
     createIngredient,
     updateIngredient,
     deleteIngredient,
-    mergeIngredients,
   } = useIngredients();
   const {
     recipes,
@@ -207,11 +207,11 @@ export default function Home() {
     }
 
     if (!user) {
+      setPrevScreen(null);
+      setRecipeDraft(createEmptyRecipeDraft());
       setShowOnboarding(false);
       setShowTutorial(false);
       return;
-      setPrevScreen(null);
-      setRecipeDraft(createEmptyRecipeDraft());
     }
 
     const onboardingKey = `${ONBOARDING_COMPLETED_KEY}_${user.id}`;
@@ -353,7 +353,6 @@ export default function Home() {
 
   const handleUpdateIngredientPrices = async ({
     updates,
-    createdIngredients,
     supplierName,
     supplierTaxId,
     invoiceNumber,
@@ -363,7 +362,6 @@ export default function Home() {
     receiptImageKey,
   }: {
     updates: Array<{ ingredientId: number; newCost: number; newAmount: number }>;
-    createdIngredients?: Ingredient[];
     supplierName?: string | null;
     supplierTaxId?: string | null;
     invoiceNumber?: string | null;
@@ -383,23 +381,6 @@ export default function Home() {
         newCost: roundTo(update.newCost, 2),
         newAmount: roundTo(update.newAmount, 4),
       }));
-
-      await Promise.all(
-        normalizedUpdates.map((update) =>
-          updateIngredient(
-            update.ingredientId,
-            {
-              totalCost: update.newCost,
-              totalAmount: update.newAmount,
-            },
-            { suppressToast: true }
-          )
-        )
-      );
-
-      if (createdIngredients?.length) {
-        mergeIngredients(createdIngredients);
-      }
 
       const fallbackTotal = normalizedUpdates.reduce((acc, item) => acc + item.newCost, 0);
       const normalizedTotalAmount =
@@ -423,6 +404,10 @@ export default function Home() {
       };
 
       await createPurchase(token, purchasePayload);
+
+      // Recarrega o estado local para refletir os saldos recalculados no backend.
+      await refreshIngredients();
+
       toast.success("Preços e compra registrados com sucesso");
     } catch (error) {
       const message =

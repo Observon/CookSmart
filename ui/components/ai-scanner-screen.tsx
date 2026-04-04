@@ -123,7 +123,6 @@ const issueVariant = (issue: string): "default" | "secondary" | "destructive" | 
 
 export interface ConfirmedPurchaseData {
   updates: Array<{ ingredientId: number; newCost: number; newAmount: number }>
-  createdIngredients?: Ingredient[]
   supplierName?: string | null
   supplierTaxId?: string | null
   invoiceNumber?: string | null
@@ -462,8 +461,6 @@ export function AiScannerScreen({ ingredients, onBack, onUpdatePrices }: AiScann
           name: item.ingredientName.trim(),
           detectedName: item.detectedName || undefined,
           unitOfMeasure: normalizeUnit(item.resolvedUnit),
-          totalCost: item.newCost,
-          totalAmount: item.newAmount,
         }))
 
         const creationResponse = await createDetectedIngredients(token, creationPayload)
@@ -485,9 +482,9 @@ export function AiScannerScreen({ ingredients, onBack, onUpdatePrices }: AiScann
             id: ingredientId,
             name: source.name,
             unitOfMeasure: normalizeUnit(source.unitOfMeasure),
-            totalCost: source.totalCost,
-            totalAmount: source.totalAmount,
-            costPerUnit: source.totalAmount > 0 ? source.totalCost / source.totalAmount : 0,
+            totalCost: 0,
+            totalAmount: 0,
+            costPerUnit: 0,
             category: null,
           }
         })
@@ -547,7 +544,6 @@ export function AiScannerScreen({ ingredients, onBack, onUpdatePrices }: AiScann
 
       await onUpdatePrices({
         updates,
-        createdIngredients: newlyCreatedIngredients,
         supplierName,
         supplierTaxId,
         invoiceNumber,
