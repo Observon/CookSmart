@@ -49,8 +49,6 @@ export interface DetectedIngredientInput {
   detectedName?: string
   unitOfMeasure: string
   category?: string
-  totalCost: number
-  totalAmount: number
 }
 
 export interface CreateDetectedIngredientsResponse {

@@ -353,7 +353,6 @@ export default function Home() {
 
   const handleUpdateIngredientPrices = async ({
     updates,
-    createdIngredients,
     supplierName,
     supplierTaxId,
     invoiceNumber,
@@ -363,7 +362,6 @@ export default function Home() {
     receiptImageKey,
   }: {
     updates: Array<{ ingredientId: number; newCost: number; newAmount: number }>;
-    createdIngredients?: Ingredient[];
     supplierName?: string | null;
     supplierTaxId?: string | null;
     invoiceNumber?: string | null;
@@ -406,21 +404,6 @@ export default function Home() {
       };
 
       await createPurchase(token, purchasePayload);
-
-      if (createdIngredients?.length) {
-        await Promise.all(
-          createdIngredients.map((ingredient) =>
-            updateIngredient(
-              ingredient.id,
-              {
-                totalCost: ingredient.totalCost,
-                totalAmount: ingredient.totalAmount,
-              },
-              { suppressToast: true }
-            )
-          )
-        );
-      }
 
       // Recarrega o estado local para refletir os saldos recalculados no backend.
       await refreshIngredients();

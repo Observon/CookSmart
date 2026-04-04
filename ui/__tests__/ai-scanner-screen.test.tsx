@@ -192,17 +192,10 @@ describe('AiScannerScreen', () => {
     expect(items[0]).toMatchObject({
       name: 'Produto Novo',
       unitOfMeasure: DEFAULT_UNIT,
-      totalCost: 12,
-      totalAmount: 1,
     })
 
     const payload = onUpdatePrices.mock.calls[0][0]
-    expect(payload.createdIngredients).toHaveLength(1)
-    expect(payload.createdIngredients[0]).toMatchObject({
-      id: 200,
-      name: 'Produto Novo',
-      unitOfMeasure: DEFAULT_UNIT,
-    })
+    expect(payload.createdIngredients).toBeUndefined()
     expect(payload.updates[0]).toMatchObject({
       ingredientId: 200,
       newCost: 12,
