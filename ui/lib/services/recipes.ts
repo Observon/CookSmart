@@ -2,29 +2,47 @@ import { apiFetch } from "@/lib/http"
 import type { CreateRecipePayload, Recipe, UpdateRecipePayload } from "@/lib/types"
 import { normalizeIngredient } from "./ingredients"
 
-function normalizeRecipe(raw: any): Recipe {
+type RawRecord = Partial<Record<string, unknown>>
+
+const toNumber = (value: unknown, fallback = 0) => {
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : fallback
+}
+
+const toRecord = (value: unknown): RawRecord =>
+  value && typeof value === "object" ? (value as RawRecord) : {}
+
+function normalizeRecipe(raw: unknown): Recipe {
+  const item = toRecord(raw)
+  const rawIngredients = Array.isArray(item.ingredients) ? item.ingredients : []
+
   return {
-    id: Number(raw.id),
-    name: raw.name,
-    description: raw.description ?? null,
-    servings: Number(raw.servings),
-    suggestedPrice: Number(raw.suggestedPrice ?? 0),
-    totalCost: Number(raw.totalCost ?? 0),
-    costPerServing: Number(raw.costPerServing ?? 0),
-    profitMargin: Number(raw.profitMargin ?? 200),
-    ingredients: Array.isArray(raw.ingredients)
-      ? raw.ingredients.map((item: any) => ({
-          id: item.id ? Number(item.id) : Number(`${raw.id ?? 0}${item.ingredientId ?? 0}`),
-          ingredientId: Number(item.ingredientId ?? item.ingredient?.id ?? 0),
-          quantity: Number(item.quantity ?? 0),
-          ingredient: normalizeIngredient(item.ingredient ?? {}),
-        }))
-      : [],
+    id: toNumber(item.id),
+    name: typeof item.name === "string" ? item.name : "",
+    description: typeof item.description === "string" ? item.description : null,
+    servings: toNumber(item.servings),
+    suggestedPrice: toNumber(item.suggestedPrice),
+    totalCost: toNumber(item.totalCost),
+    costPerServing: toNumber(item.costPerServing),
+    profitMargin: toNumber(item.profitMargin, 200),
+    ingredients: rawIngredients.map((recipeIngredient) => {
+      const mappedIngredient = toRecord(recipeIngredient)
+      const nestedIngredient = toRecord(mappedIngredient.ingredient)
+
+      return {
+        id: mappedIngredient.id
+          ? toNumber(mappedIngredient.id)
+          : toNumber(`${item.id ?? 0}${mappedIngredient.ingredientId ?? 0}`),
+        ingredientId: toNumber(mappedIngredient.ingredientId ?? nestedIngredient.id),
+        quantity: toNumber(mappedIngredient.quantity),
+        ingredient: normalizeIngredient(nestedIngredient),
+      }
+    }),
   }
 }
 
 export async function listRecipes(token: string): Promise<Recipe[]> {
-  const data = await apiFetch<any[]>("/recipes", {
+  const data = await apiFetch<unknown[]>("/recipes", {
     method: "GET",
     token,
   })
@@ -33,7 +51,7 @@ export async function listRecipes(token: string): Promise<Recipe[]> {
 }
 
 export async function createRecipe(token: string, payload: CreateRecipePayload): Promise<Recipe> {
-  const data = await apiFetch<any>("/recipes", {
+  const data = await apiFetch<unknown>("/recipes", {
     method: "POST",
     token,
     body: JSON.stringify(payload),
@@ -47,7 +65,7 @@ export async function updateRecipe(
   id: number,
   payload: Partial<Omit<UpdateRecipePayload, "id">>,
 ): Promise<Recipe> {
-  const data = await apiFetch<any>(`/recipes/${id}`, {
+  const data = await apiFetch<unknown>(`/recipes/${id}`, {
     method: "PATCH",
     token,
     body: JSON.stringify(payload),
