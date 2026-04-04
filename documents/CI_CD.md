@@ -18,7 +18,7 @@ O pipeline é acionado automaticamente em:
 - **Objetivo**: Preparar cache de dependências
 - **Ações**:
   - Configura Node.js 20
-  - Instala pnpm 8
+  - Instala pnpm 10
   - Download de cache do pnpm
   - Instala dependências com `pnpm install --frozen-lockfile`
 
