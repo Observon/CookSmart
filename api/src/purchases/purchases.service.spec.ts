@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
+/* eslint-disable @typescript-eslint/unbound-method */
 import { Test, TestingModule } from '@nestjs/testing';
 import { Prisma } from '@prisma/client';
 
@@ -6,6 +8,10 @@ import { PrismaService } from '../prisma/prisma.service';
 
 describe('PurchasesService', () => {
   let service: PurchasesService;
+  type TxCallback = (tx: PrismaService) => Promise<unknown>;
+  type PurchaseCreateData = {
+    totalAmount?: Prisma.Decimal;
+  };
 
   const prismaMock = {
     purchase: {
@@ -28,20 +34,20 @@ describe('PurchasesService', () => {
   } as unknown as PrismaService;
 
   beforeEach(async () => {
-    Object.values(prismaMock.purchase).forEach((fn) =>
-      (fn as jest.Mock).mockReset?.(),
-    );
-    Object.values(prismaMock.purchaseItem).forEach((fn) =>
-      (fn as jest.Mock).mockReset?.(),
-    );
-    Object.values(prismaMock.ingredient).forEach((fn) =>
-      (fn as jest.Mock).mockReset?.(),
-    );
-    (prismaMock.$transaction as jest.Mock).mockReset();
+    const purchaseMocks = Object.values(prismaMock.purchase) as jest.Mock[];
+    const purchaseItemMocks = Object.values(
+      prismaMock.purchaseItem,
+    ) as jest.Mock[];
+    const ingredientMocks = Object.values(prismaMock.ingredient) as jest.Mock[];
+    const transactionMock = prismaMock.$transaction as jest.Mock;
 
-    (prismaMock.$transaction as jest.Mock).mockImplementation(
-      async (callback: (tx: PrismaService) => Promise<unknown>) =>
-        callback(prismaMock),
+    purchaseMocks.forEach((fn) => fn.mockReset());
+    purchaseItemMocks.forEach((fn) => fn.mockReset());
+    ingredientMocks.forEach((fn) => fn.mockReset());
+    transactionMock.mockReset();
+
+    transactionMock.mockImplementation(async (callback: TxCallback) =>
+      callback(prismaMock),
     );
 
     const module: TestingModule = await Test.createTestingModule({
@@ -85,12 +91,16 @@ describe('PurchasesService', () => {
 
     const result = await service.create(userId, dto);
 
-    expect(prismaMock.ingredient.findMany).toHaveBeenCalledWith({
+    const ingredientFindManyMock = prismaMock.ingredient.findMany as jest.Mock;
+    const purchaseCreateMock = prismaMock.purchase.create as jest.Mock;
+    const ingredientUpdateMock = prismaMock.ingredient.update as jest.Mock;
+
+    expect(ingredientFindManyMock).toHaveBeenCalledWith({
       where: { userId, id: { in: [1] } },
       select: { id: true },
     });
 
-    expect(prismaMock.purchase.create).toHaveBeenCalledWith({
+    expect(purchaseCreateMock).toHaveBeenCalledWith({
       data: expect.objectContaining({
         userId,
         purchaseDate: new Date('2025-01-15'),
@@ -104,7 +114,7 @@ describe('PurchasesService', () => {
       include: expect.any(Object),
     });
 
-    expect(prismaMock.ingredient.update).toHaveBeenCalledWith({
+    expect(ingredientUpdateMock).toHaveBeenCalledWith({
       where: { id: 1 },
       data: expect.objectContaining({
         totalCost: expect.any(Prisma.Decimal),
@@ -130,12 +140,12 @@ describe('PurchasesService', () => {
       { id: 1 },
       { id: 2 },
     ]);
-    (prismaMock.purchase.create as jest.Mock).mockImplementation(async ({
-      data,
-    }) => {
-      expect(data.totalAmount?.toNumber()).toBeCloseTo(15.5, 2);
-      return { id: 10 };
-    });
+    (prismaMock.purchase.create as jest.Mock).mockImplementation(
+      ({ data }: { data: PurchaseCreateData }) => {
+        expect(data.totalAmount?.toNumber()).toBeCloseTo(15.5, 2);
+        return Promise.resolve({ id: 10 });
+      },
+    );
     (prismaMock.ingredient.findFirst as jest.Mock).mockResolvedValue({
       totalCost: new Prisma.Decimal(0),
       totalAmount: new Prisma.Decimal(0.1),
@@ -143,6 +153,6 @@ describe('PurchasesService', () => {
 
     await service.create(userId, dto);
 
-    expect(prismaMock.purchase.create).toHaveBeenCalled();
+    expect(prismaMock.purchase.create as jest.Mock).toHaveBeenCalled();
   });
 });

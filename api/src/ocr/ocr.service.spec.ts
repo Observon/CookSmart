@@ -1,4 +1,7 @@
-import { BadRequestException, InternalServerErrorException } from '@nestjs/common';
+import {
+  BadRequestException,
+  InternalServerErrorException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { promises as fs } from 'node:fs';
 import { join } from 'node:path';
@@ -9,7 +12,9 @@ const textractSendMock = jest.fn();
 const s3SendMock = jest.fn();
 
 jest.mock('@aws-sdk/client-textract', () => {
-  const actual = jest.requireActual('@aws-sdk/client-textract');
+  const actual = jest.requireActual<typeof import('@aws-sdk/client-textract')>(
+    '@aws-sdk/client-textract',
+  );
   return {
     ...actual,
     TextractClient: jest.fn().mockImplementation(() => ({
@@ -19,7 +24,10 @@ jest.mock('@aws-sdk/client-textract', () => {
 });
 
 jest.mock('@aws-sdk/client-s3', () => {
-  const actual = jest.requireActual('@aws-sdk/client-s3');
+  const actual =
+    jest.requireActual<typeof import('@aws-sdk/client-s3')>(
+      '@aws-sdk/client-s3',
+    );
   return {
     ...actual,
     S3Client: jest.fn().mockImplementation(() => ({
@@ -29,7 +37,9 @@ jest.mock('@aws-sdk/client-s3', () => {
 });
 
 describe('OcrService', () => {
-  const createFile = (overrides: Partial<OcrUploadedFile> = {}): OcrUploadedFile => ({
+  const createFile = (
+    overrides: Partial<OcrUploadedFile> = {},
+  ): OcrUploadedFile => ({
     buffer: Buffer.from('nota fiscal'),
     mimetype: 'image/png',
     size: 12,
@@ -43,7 +53,10 @@ describe('OcrService', () => {
   });
 
   afterEach(async () => {
-    await fs.rm(join(process.cwd(), 'tmp', 'ocr'), { recursive: true, force: true });
+    await fs.rm(join(process.cwd(), 'tmp', 'ocr'), {
+      recursive: true,
+      force: true,
+    });
   });
 
   it('lança erro quando nenhum arquivo é enviado', async () => {
@@ -56,7 +69,9 @@ describe('OcrService', () => {
 
   it('salva o arquivo localmente quando TEXTRACT_USE_S3=false', async () => {
     textractSendMock.mockResolvedValue({ ExpenseDocuments: [] });
-    const service = new OcrService(new ConfigService({ TEXTRACT_USE_S3: 'false' }));
+    const service = new OcrService(
+      new ConfigService({ TEXTRACT_USE_S3: 'false' }),
+    );
 
     const result = await service.analyzeInvoice(createFile());
 
@@ -82,10 +97,22 @@ describe('OcrService', () => {
       ExpenseDocuments: [
         {
           SummaryFields: [
-            { Type: { Text: 'VENDOR_NAME' }, ValueDetection: { Text: 'Padaria Central' } },
-            { Type: { Text: 'VENDOR_TAX_ID' }, ValueDetection: { Text: '12.345.678/0001-00' } },
-            { Type: { Text: 'INVOICE_RECEIPT_ID' }, ValueDetection: { Text: 'NF-123' } },
-            { Type: { Text: 'INVOICE_DATE' }, ValueDetection: { Text: '2025-01-02' } },
+            {
+              Type: { Text: 'VENDOR_NAME' },
+              ValueDetection: { Text: 'Padaria Central' },
+            },
+            {
+              Type: { Text: 'VENDOR_TAX_ID' },
+              ValueDetection: { Text: '12.345.678/0001-00' },
+            },
+            {
+              Type: { Text: 'INVOICE_RECEIPT_ID' },
+              ValueDetection: { Text: 'NF-123' },
+            },
+            {
+              Type: { Text: 'INVOICE_DATE' },
+              ValueDetection: { Text: '2025-01-02' },
+            },
             { Type: { Text: 'TOTAL' }, ValueDetection: { Text: '45,90' } },
             { Type: { Text: 'CURRENCY' }, ValueDetection: { Text: 'BRL' } },
           ],
@@ -94,10 +121,22 @@ describe('OcrService', () => {
               LineItems: [
                 {
                   LineItemExpenseFields: [
-                    { Type: { Text: 'ITEM' }, ValueDetection: { Text: 'Pão Francês', Confidence: 99 } },
-                    { Type: { Text: 'QUANTITY' }, ValueDetection: { Text: '0,485', Confidence: 98 } },
-                    { Type: { Text: 'UNIT_PRICE' }, ValueDetection: { Text: '12.50', Confidence: 97 } },
-                    { Type: { Text: 'PRICE' }, ValueDetection: { Text: '6.06', Confidence: 96 } },
+                    {
+                      Type: { Text: 'ITEM' },
+                      ValueDetection: { Text: 'Pão Francês', Confidence: 99 },
+                    },
+                    {
+                      Type: { Text: 'QUANTITY' },
+                      ValueDetection: { Text: '0,485', Confidence: 98 },
+                    },
+                    {
+                      Type: { Text: 'UNIT_PRICE' },
+                      ValueDetection: { Text: '12.50', Confidence: 97 },
+                    },
+                    {
+                      Type: { Text: 'PRICE' },
+                      ValueDetection: { Text: '6.06', Confidence: 96 },
+                    },
                   ],
                 },
               ],
@@ -107,7 +146,9 @@ describe('OcrService', () => {
       ],
     });
 
-    const result = await service.analyzeInvoice(createFile({ originalname: 'nota.pdf' }));
+    const result = await service.analyzeInvoice(
+      createFile({ originalname: 'nota.pdf' }),
+    );
 
     expect(s3SendMock).toHaveBeenCalledTimes(1);
     expect(result.supplierName).toBe('Padaria Central');
@@ -151,15 +192,35 @@ describe('OcrService', () => {
                 {
                   LineItemExpenseFields: [
                     { Type: { Text: 'ITEM' }, ValueDetection: { Text: '   ' } },
-                    { Type: { Text: 'QUANTITY' }, ValueDetection: { Text: '0' }, Confidence: 40 },
-                    { Type: { Text: 'PRICE' }, ValueDetection: { Text: '' }, Confidence: 40 },
+                    {
+                      Type: { Text: 'QUANTITY' },
+                      ValueDetection: { Text: '0' },
+                      Confidence: 40,
+                    },
+                    {
+                      Type: { Text: 'PRICE' },
+                      ValueDetection: { Text: '' },
+                      Confidence: 40,
+                    },
                   ],
                 },
                 {
                   LineItemExpenseFields: [
-                    { Type: { Text: 'ITEM' }, ValueDetection: { Text: 'Farinha' }, Confidence: 60 },
-                    { Type: { Text: 'QUANTITY' }, ValueDetection: { Text: '1' }, Confidence: 60 },
-                    { Type: { Text: 'PRICE' }, ValueDetection: { Text: '10,00' }, Confidence: 60 },
+                    {
+                      Type: { Text: 'ITEM' },
+                      ValueDetection: { Text: 'Farinha' },
+                      Confidence: 60,
+                    },
+                    {
+                      Type: { Text: 'QUANTITY' },
+                      ValueDetection: { Text: '1' },
+                      Confidence: 60,
+                    },
+                    {
+                      Type: { Text: 'PRICE' },
+                      ValueDetection: { Text: '10,00' },
+                      Confidence: 60,
+                    },
                   ],
                 },
               ],
@@ -173,9 +234,16 @@ describe('OcrService', () => {
 
     expect(result.items).toHaveLength(2);
     expect(result.items[0].issues).toEqual(
-      expect.arrayContaining(['missing_description', 'missing_total', 'missing_quantity', 'low_confidence']),
+      expect.arrayContaining([
+        'missing_description',
+        'missing_total',
+        'missing_quantity',
+        'low_confidence',
+      ]),
     );
-    expect(result.items[1].issues).toEqual(expect.arrayContaining(['low_confidence', 'missing_unit_price']));
+    expect(result.items[1].issues).toEqual(
+      expect.arrayContaining(['low_confidence', 'missing_unit_price']),
+    );
     expect(result.items[1].unitPrice).toBeCloseTo(10, 2);
   });
 
@@ -194,7 +262,9 @@ describe('OcrService', () => {
     expect(initialMetrics.averageDurationMs).toBeGreaterThanOrEqual(0);
 
     for (let index = 0; index < 5; index += 1) {
-      await expect(service.analyzeInvoice(undefined)).rejects.toBeInstanceOf(BadRequestException);
+      await expect(service.analyzeInvoice(undefined)).rejects.toBeInstanceOf(
+        BadRequestException,
+      );
     }
 
     const metrics = service.getMetrics();

@@ -12,7 +12,7 @@ import type {
   Recipe,
   UpdateRecipePayload,
 } from "@/lib/types";
-import { ArrowLeft, DollarSign, Plus, Trash2 } from "lucide-react";
+import { ArrowLeft, Plus, Trash2 } from "lucide-react";
 
 interface RecipeFormScreenProps {
   ingredients: Ingredient[];

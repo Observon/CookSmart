@@ -29,7 +29,6 @@ import {
   CreateIngredientPayload,
   CreatePurchasePayload,
   CreateRecipePayload,
-  Ingredient,
   Recipe,
   UpdateIngredientPayload,
   UpdateRecipePayload,
@@ -123,7 +122,6 @@ export default function Home() {
   const { token, user, logout, loading: authLoading, initializing } = useAuth();
   const {
     ingredients,
-    loading: ingredientsLoading,
     saving: ingredientsSaving,
     refresh: refreshIngredients,
     createIngredient,

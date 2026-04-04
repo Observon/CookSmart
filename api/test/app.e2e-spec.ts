@@ -22,12 +22,16 @@ describe('AppController (e2e)', () => {
       .compile();
 
     app = moduleFixture.createNestApplication();
-    app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
+    app.useGlobalPipes(
+      new ValidationPipe({ whitelist: true, transform: true }),
+    );
     await app.init();
   });
 
   afterAll(async () => {
-    await app.close();
+    if (app) {
+      await app.close();
+    }
   });
 
   it('/ (GET)', () => {
@@ -51,7 +55,8 @@ describe('AppController (e2e)', () => {
       })
       .expect(400);
 
-    expect(response.body.message).toBeDefined();
+    const body = response.body as { message?: unknown };
+    expect(body.message).toBeDefined();
   });
 
   it('/auth/login (POST) sem senha deve retornar 400', async () => {
@@ -62,6 +67,7 @@ describe('AppController (e2e)', () => {
       })
       .expect(400);
 
-    expect(response.body.message).toBeDefined();
+    const body = response.body as { message?: unknown };
+    expect(body.message).toBeDefined();
   });
 });
