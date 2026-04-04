@@ -8,8 +8,8 @@ import { Toaster } from '@/components/ui/sonner'
 
 export const metadata: Metadata = {
   title: 'CookSmart',
-  description: 'Created with v0',
-  generator: 'v0.app',
+  description: 'Plataforma para precificação inteligente, controle de custos e gestão de receitas.',
+  generator: 'Next.js',
   icons: {
     icon: '/favicon.ico',
   },
