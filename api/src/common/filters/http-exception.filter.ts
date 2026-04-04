@@ -66,9 +66,9 @@ export class HttpExceptionFilter implements ExceptionFilter {
     }
 
     const payload: Record<string, unknown> = {
-      statusCode: status,
       path: request?.url,
       ...additional,
+      statusCode: status,
       message,
     };
 
