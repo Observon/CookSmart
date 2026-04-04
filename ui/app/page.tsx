@@ -125,10 +125,10 @@ export default function Home() {
     ingredients,
     loading: ingredientsLoading,
     saving: ingredientsSaving,
+    refresh: refreshIngredients,
     createIngredient,
     updateIngredient,
     deleteIngredient,
-    mergeIngredients,
   } = useIngredients();
   const {
     recipes,
@@ -207,11 +207,11 @@ export default function Home() {
     }
 
     if (!user) {
+      setPrevScreen(null);
+      setRecipeDraft(createEmptyRecipeDraft());
       setShowOnboarding(false);
       setShowTutorial(false);
       return;
-      setPrevScreen(null);
-      setRecipeDraft(createEmptyRecipeDraft());
     }
 
     const onboardingKey = `${ONBOARDING_COMPLETED_KEY}_${user.id}`;
@@ -384,23 +384,6 @@ export default function Home() {
         newAmount: roundTo(update.newAmount, 4),
       }));
 
-      await Promise.all(
-        normalizedUpdates.map((update) =>
-          updateIngredient(
-            update.ingredientId,
-            {
-              totalCost: update.newCost,
-              totalAmount: update.newAmount,
-            },
-            { suppressToast: true }
-          )
-        )
-      );
-
-      if (createdIngredients?.length) {
-        mergeIngredients(createdIngredients);
-      }
-
       const fallbackTotal = normalizedUpdates.reduce((acc, item) => acc + item.newCost, 0);
       const normalizedTotalAmount =
         typeof totalAmount === "number" && Number.isFinite(totalAmount)
@@ -423,6 +406,25 @@ export default function Home() {
       };
 
       await createPurchase(token, purchasePayload);
+
+      if (createdIngredients?.length) {
+        await Promise.all(
+          createdIngredients.map((ingredient) =>
+            updateIngredient(
+              ingredient.id,
+              {
+                totalCost: ingredient.totalCost,
+                totalAmount: ingredient.totalAmount,
+              },
+              { suppressToast: true }
+            )
+          )
+        );
+      }
+
+      // Recarrega o estado local para refletir os saldos recalculados no backend.
+      await refreshIngredients();
+
       toast.success("Preços e compra registrados com sucesso");
     } catch (error) {
       const message =
