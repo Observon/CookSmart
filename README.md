@@ -87,7 +87,7 @@ CookSmart/
 
 1. **Clone o repositório**
    ```bash
-   git clone https://github.com/Observon/CookSmart.git
+  git clone <REPOSITORY_URL>
    cd CookSmart
    ```
 
@@ -252,9 +252,8 @@ Ambos dependem de `useAuth()` para obter o token JWT. Ao integrar novas telas, p
 - Histórico de transações
 
 ### Despesas Operacionais (Roadmap)
-- Funcionalidade em planejamento
-- O módulo já existe no backend como estrutura inicial, mas sem endpoints e regras de negócio finais
-- Será integrado ao cálculo de preço final após conclusão do CRUD e relatórios
+- Funcionalidade planejada para futuras versões
+- Será integrado ao cálculo de preço final permitindo considerar custos fixos e variáveis na precificação
 
 ## 📸 OCR de Notas Fiscais com Amazon Textract
 
@@ -264,30 +263,11 @@ Ambos dependem de `useAuth()` para obter o token JWT. Ao integrar novas telas, p
 - **Atualização de preços**: após a revisão, a UI vincula cada item válido e chama `/purchases` para registrar a compra. O serviço de compras (`api/src/purchases/purchases.service.ts`) cria `Purchase`/`PurchaseItem`, salva metadados e recalcula o custo dos ingredientes.
 - **Monitoramento**: o serviço expõe `GET /ocr/metrics` (autenticado) com totais, tempo médio, taxa de falhas e alertas (latência > 5s ou falhas ≥ 20%). Use-o para integrar com dashboards ou alarmes externos.
 - **Variáveis**: configure `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`, `TEXTRACT_BUCKET`, `TEXTRACT_USE_S3`, `TEXTRACT_MAX_FILE_SIZE_MB` e (opcional) `AWS_SESSION_TOKEN` em `api/.env`.
+- **Desenvolvimento local**: veja [Configuração S3 Local](./api/README.md#configuração-s3-local) em `api/README.md` para usar LocalStack ou MinIO em vez de AWS real.
 - **Fluxo recomendado**:
   1. Inicie a API (`pnpm run start:dev`) e o frontend (`pnpm run dev`).
   2. Acesse a lista de ingredientes, clique em **Escanear Nota Fiscal** e envie o arquivo.
   3. Revise as badges, vincule itens pendentes e confirme; os preços e a compra são salvos automaticamente.
-
-### Configuração S3 Local
-
-- **LocalStack**:
-  1. Suba o serviço (`docker run -p 4566:4566 localstack/localstack`).
-  2. Configure o endpoint no `.env` da API:
-
-     ```env
-     TEXTRACT_USE_S3="true"
-     AWS_REGION="us-east-1"
-     AWS_ACCESS_KEY_ID="test"
-     AWS_SECRET_ACCESS_KEY="test"
-     AWS_ENDPOINT_URL="http://localhost:4566"
-     TEXTRACT_BUCKET="cooksmart-ocr-local"
-     ````
-
-  3. Crie o bucket: `awslocal s3 mb s3://cooksmart-ocr-local`.
-- **MinIO**: utilize `docker run -p 9000:9000 -p 9090:9090 quay.io/minio/minio server /data` e mapeie `AWS_ENDPOINT_URL="http://localhost:9000"` (exige `TEXTRACT_USE_S3="true"`). Ajuste `AWS_REGION` para o valor esperado pelo MinIO.
-
-> **Nota**: quando `AWS_ENDPOINT_URL` estiver definido, o SDK usará o endpoint customizado para operações S3, mantendo o Textract na AWS real.
 
 ### Políticas IAM Recomendadas
 
@@ -318,14 +298,6 @@ Crie uma role/usuário com a política mínima abaixo (substitua `<bucket-name>`
 
 Mantenha chaves separadas para ambientes (produção, staging) e habilite MFA em usuários humanos.
 
-### Fluxo OCR (Capturas de Tela)
-
-- **Upload da nota**: `docs/screenshots/ocr-upload.png`.
-- **Revisão e vinculação**: `docs/screenshots/ocr-review.png`.
-- **Confirmação e alertas**: `docs/screenshots/ocr-confirm.png`.
-
-> Salve as imagens no diretório `docs/screenshots/` para que os links acima sejam renderizados automaticamente no GitHub.
-
 Exemplo de requisição manual (necessário token JWT válido):
 
 ```bash
@@ -333,16 +305,6 @@ curl -X POST http://localhost:3000/ocr/textract \
   -H "Authorization: Bearer <TOKEN>" \
   -F file=@nota-fiscal.pdf
 ```
-
-## 📊 Funcionalidades Principais
-
-### Gestão de Ingredientes
-- Cadastro de ingredientes com nome, unidade de medida e preço unitário
-- Histórico de compras e variação de preços
-
-### Despesas Operacionais (Roadmap)
-- Funcionalidade prevista para próximas versões
-- Escopo planejado: cadastro de custos fixos/variáveis e impacto no preço sugerido
 
 ## 🤝 Contribuindo
 

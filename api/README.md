@@ -1,6 +1,6 @@
 ## CookSmart API
 
-Backend em NestJS responsável por autenticação, cadastro de insumos, receitas, compras e OCR do CookSmart, com estrutura inicial para despesas operacionais em roadmap.
+Backend em NestJS responsável por autenticação, cadastro de insumos, receitas, compras e OCR do CookSmart. As despesas operacionais seguem como roadmap.
 
 ### Requisitos
 
@@ -51,6 +51,47 @@ Backend em NestJS responsável por autenticação, cadastro de insumos, receitas
 - **Persistência**: após a confirmação na UI, um payload `CreatePurchaseDto` é enviado para `POST /purchases`. O `PurchasesService` cria `Purchase`/`PurchaseItem`, armazena os metadados opcionais (`invoiceNumber`, `supplierTaxId`, `currency`, `totalAmount`, `receiptImage`) e recalcula o custo dos ingredientes.
 - **Campos novos** (`prisma/schema.prisma`): `Purchase` possui `invoiceNumber`, `supplierTaxId`, `currency`, `totalAmount`, além de `receiptImage`.
 
+### Configuração S3 Local
+
+Para desenvolvimento local sem usar AWS real, configure um serviço S3 compatível:
+
+**LocalStack**:
+```bash
+docker run -p 4566:4566 localstack/localstack
+```
+
+Depois, no arquivo `.env` da API:
+```env
+TEXTRACT_USE_S3=true
+AWS_REGION=us-east-1
+AWS_ACCESS_KEY_ID=test
+AWS_SECRET_ACCESS_KEY=test
+AWS_ENDPOINT_URL=http://localhost:4566
+TEXTRACT_BUCKET=cooksmart-ocr-local
+```
+
+Crie o bucket:
+```bash
+awslocal s3 mb s3://cooksmart-ocr-local
+```
+
+**MinIO** (alternativa):
+```bash
+docker run -p 9000:9000 -p 9090:9090 quay.io/minio/minio server /data
+```
+
+Configure no `.env`:
+```env
+TEXTRACT_USE_S3=true
+AWS_REGION=us-east-1
+AWS_ACCESS_KEY_ID=minioadmin
+AWS_SECRET_ACCESS_KEY=minioadmin
+AWS_ENDPOINT_URL=http://localhost:9000
+TEXTRACT_BUCKET=cooksmart-ocr-local
+```
+
+> **Nota**: quando `AWS_ENDPOINT_URL` estiver definido, o SDK usará o endpoint customizado para operações S3, mantendo o Textract na AWS real.
+
 Exemplo de chamada autenticada:
 
 ```bash
@@ -97,7 +138,7 @@ curl -X POST http://localhost:3000/ocr/textract \
 
 ### Roadmap
 
-- **Despesas operacionais**: implementação completa do módulo (`operational-expenses`) com CRUD e integração ao cálculo de preço.
+- **Despesas operacionais**: previsão de implementação do módulo (`operational-expenses`) com CRUD e integração ao cálculo de preço.
 - **Dashboard de métricas**: endpoints agregados para consumo pelo frontend.
 - **Integração com notificações**: alertas de OCR e variação de custos.
 - **Pipelines CI/CD**: automação de testes e deploy.
