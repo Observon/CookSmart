@@ -150,6 +150,7 @@ CookSmart/
 
 - **[API Documentation](./api/README.md)** - Documentação detalhada do backend
 - **[Setup Guide](./documents/setup.md)** - Guia completo de configuração de ambiente
+- **[CI/CD Pipeline](./documents/CI_CD.md)** - Configuração do GitHub Actions para testes e builds
 - **[API Swagger](http://localhost:3000/docs)** - Documentação interativa da API (após iniciar o backend)
 
 ## 🧪 Testes
