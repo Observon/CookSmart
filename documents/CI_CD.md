@@ -31,15 +31,16 @@ O pipeline é acionado automaticamente em:
 
 ### 3. `test-api`
 - **Dependência**: `install`
-- **Objetivo**: Validar testes unitários e E2E do backend com banco de dados
-- **Serviços**:
+- **Status atual**: **temporariamente desativado** no workflow (`if: false`) enquanto o ambiente da API está offline
+- **Objetivo (quando ativo)**: Validar testes unitários e E2E do backend com banco de dados
+- **Serviços (quando ativo)**:
   - PostgreSQL 14 (para testes que exigem DB)
-- **Ações**:
+- **Ações (quando ativo)**:
   - Gera Prisma Client (`prisma:generate`)
   - Executa testes unitários (`pnpm -C api run test`)
   - Executa testes E2E (`pnpm -C api run test:e2e`)
   - Build de produção (`pnpm -C api run build`)
-- **Variáveis de ambiente**:
+- **Variáveis de ambiente (quando ativo)**:
   - `DATABASE_URL` apontando para PostgreSQL em container
   - `NODE_ENV=production` para build
 
@@ -51,7 +52,7 @@ O pipeline é acionado automaticamente em:
   - Build de produção Next.js (`pnpm -C ui run build`)
 
 ### 5. `all-checks`
-- **Dependência**: `lint`, `test-api`, `test-ui`
+- **Dependência (estado atual)**: `lint`, `test-ui`
 - **Objetivo**: Garantir que todos os jobs passaram (status final)
 - **Comportamento**: 
   - Falha se qualquer job upstream falhar
@@ -67,6 +68,7 @@ O pipeline utiliza cache do `pnpm` para otimizar tempo:
 ## Ambiente de Testes
 
 ### PostgreSQL (test-api)
+- **Status atual**: não utilizado enquanto o `test-api` estiver desativado
 - **Imagem**: `postgres:14-alpine`
 - **Host**: `localhost:5432`
 - **Database**: `cooksmart_test`
