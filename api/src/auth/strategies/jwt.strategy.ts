@@ -33,8 +33,10 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     configService: ConfigService,
     private readonly prisma: PrismaService,
   ) {
-    const jwtSecret = configService.getOrThrow<string>('JWT_SECRET');
+    const jwtSecret = String(configService.getOrThrow('JWT_SECRET'));
+
     const strategyOptions: JwtStrategyConfig = {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       jwtFromRequest: bearerTokenExtractor,
       ignoreExpiration: false,
       secretOrKey: jwtSecret,
