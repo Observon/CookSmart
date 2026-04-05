@@ -14,6 +14,9 @@ importers:
       '@aws-sdk/client-textract':
         specifier: ^3.913.0
         version: 3.913.0
+      '@cooksmart/contracts':
+        specifier: workspace:*
+        version: link:../contracts
       '@nestjs/common':
         specifier: ^11.0.1
         version: 11.1.6(class-transformer@0.5.1)(class-validator@0.14.2)(reflect-metadata@0.2.2)(rxjs@7.8.2)
@@ -154,8 +157,13 @@ importers:
         specifier: ^8.20.0
         version: 8.45.0(eslint@9.37.0(jiti@2.6.1))(typescript@5.9.3)
 
+  contracts: {}
+
   ui:
     dependencies:
+      '@cooksmart/contracts':
+        specifier: workspace:*
+        version: link:../contracts
       '@hookform/resolvers':
         specifier: ^3.10.0
         version: 3.10.0(react-hook-form@7.64.0(react@18.3.1))
