@@ -70,6 +70,11 @@ CookSmart/
 │   ├── __tests__/                    # Testes Vitest + RTL
 │   ├── package.json                  # Scripts e dependências do frontend
 │   └── vitest.config.ts              # Configuração de testes
+├── docs/                             # Documentação Docusaurus
+│   ├── docs/                         # Páginas de documentação (Markdown)
+│   ├── src/                          # Componentes e páginas customizadas
+│   ├── static/                       # Assets estáticos
+│   └── docusaurus.config.ts          # Configuração do Docusaurus
 ├── documents/                        # Diagramas e guias complementares
 ├── pnpm-workspace.yaml               # Configuração do monorepo
 └── README.md                         # Este documento
@@ -148,10 +153,19 @@ CookSmart/
 
 ## 📚 Documentação
 
-- **[API Documentation](./api/README.md)** - Documentação detalhada do backend
-- **[Setup Guide](./documents/setup.md)** - Guia completo de configuração de ambiente
-- **[CI/CD Pipeline](./documents/CI_CD.md)** - Configuração do GitHub Actions para testes e builds
-- **[API Swagger](http://localhost:3000/docs)** - Documentação interativa da API (após iniciar o backend)
+- **[Documentação Online](./docs/README.md)** – Site Docusaurus com guias completos
+- **[API Documentation](./api/README.md)** – Documentação detalhada do backend
+- **[Setup Guide](./documents/setup.md)** – Guia completo de configuração de ambiente
+- **[CI/CD Pipeline](./documents/CI_CD.md)** – Configuração do GitHub Actions para testes e builds
+- **[API Swagger](http://localhost:3000/docs)** – Documentação interativa da API (após iniciar o backend)
+
+### Executar o site de documentação
+
+```bash
+pnpm --filter docs start   # Inicia o servidor de desenvolvimento (http://localhost:3000)
+pnpm --filter docs build   # Gera o build estático em docs/build/
+pnpm --filter docs serve   # Serve o build localmente
+```
 
 ## 🧪 Testes
 
