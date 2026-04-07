@@ -7,13 +7,14 @@ import {
   IsString,
   MaxLength,
 } from 'class-validator';
+import type { CreateIngredientContract } from '@cooksmart/contracts';
 
-export class CreateIngredientDto {
+export class CreateIngredientDto implements CreateIngredientContract {
   @ApiProperty({ description: 'Nome do ingrediente', maxLength: 100 })
   @IsString()
   @IsNotEmpty()
   @MaxLength(100)
-  name: string;
+  name!: string;
 
   @ApiProperty({
     description: 'Unidade de medida (ex.: kg, g, ml)',
@@ -22,7 +23,7 @@ export class CreateIngredientDto {
   @IsString()
   @IsNotEmpty()
   @MaxLength(10)
-  unitOfMeasure: string;
+  unitOfMeasure!: string;
 
   @ApiPropertyOptional({
     description: 'Categoria opcional do ingrediente',
@@ -39,10 +40,10 @@ export class CreateIngredientDto {
   })
   @IsNumber({ maxDecimalPlaces: 2 })
   @IsPositive()
-  totalCost: number;
+  totalCost!: number;
 
   @ApiProperty({ description: 'Quantidade total adquirida', example: 2.5 })
   @IsNumber({ maxDecimalPlaces: 4 })
   @IsPositive()
-  totalAmount: number;
+  totalAmount!: number;
 }

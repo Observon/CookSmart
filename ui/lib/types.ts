@@ -1,71 +1,39 @@
-export interface AuthUser {
-  id: number
-  name: string
-  email: string
-  phone?: string | null
-}
+import type {
+  AuthResponseContract,
+  AuthUserContract,
+  CreateIngredientContract,
+  CreateRecipeContract,
+  IngredientContract,
+  RecipeContract,
+  RecipeIngredientDetailContract,
+  RecipeIngredientInputContract,
+  UpdateIngredientContract,
+  UpdateRecipeContract,
+} from "@cooksmart/contracts"
 
-export interface AuthResponse {
-  accessToken: string
-  expiresIn: string
-  user: AuthUser
-}
+export type AuthUser = AuthUserContract
 
-export interface Ingredient {
-  id: number
-  name: string
-  unitOfMeasure: string
-  totalCost: number
-  totalAmount: number
-  costPerUnit: number
-  category?: string | null
-}
+export type AuthResponse = AuthResponseContract
 
-export interface CreateIngredientPayload {
-  name: string
-  unitOfMeasure: string
-  totalCost: number
-  totalAmount: number
-  category?: string | null
-}
+export type Ingredient = IngredientContract
 
-export interface UpdateIngredientPayload extends Partial<CreateIngredientPayload> {
+export type CreateIngredientPayload = CreateIngredientContract
+
+export type UpdateIngredientPayload = UpdateIngredientContract & {
   id: number
 }
 
-export interface RecipeIngredientInput {
-  ingredientId: number
-  quantity: number
-}
+export type RecipeIngredientInput = RecipeIngredientInputContract
 
-export interface RecipeIngredientDetail {
-  id: number
-  ingredientId: number
-  quantity: number
-  ingredient: Ingredient
-}
+export type RecipeIngredientDetail = RecipeIngredientDetailContract
 
-export interface Recipe {
-  id: number
-  name: string
-  description?: string | null
-  servings: number
-  suggestedPrice: number
-  totalCost: number
-  costPerServing: number
+export type Recipe = RecipeContract
+
+export type CreateRecipePayload = CreateRecipeContract & {
   profitMargin: number
-  ingredients: RecipeIngredientDetail[]
 }
 
-export interface CreateRecipePayload {
-  name: string
-  servings: number
-  profitMargin: number
-  description?: string | null
-  ingredients: RecipeIngredientInput[]
-}
-
-export interface UpdateRecipePayload extends Partial<CreateRecipePayload> {
+export type UpdateRecipePayload = UpdateRecipeContract & {
   id: number
 }
 

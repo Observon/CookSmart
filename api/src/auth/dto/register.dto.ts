@@ -6,21 +6,22 @@ import {
   IsString,
   MinLength,
 } from 'class-validator';
+import type { RegisterContract } from '@cooksmart/contracts';
 
-export class RegisterDto {
+export class RegisterDto implements RegisterContract {
   @ApiProperty({
     description: 'Nome completo do usuário',
     example: 'João da Silva',
   })
   @IsString()
-  name: string;
+  name!: string;
 
   @ApiProperty({
     description: 'E-mail do usuário',
     example: 'joao@example.com',
   })
   @IsEmail()
-  email: string;
+  email!: string;
 
   @ApiProperty({
     description: 'Senha com no mínimo 8 caracteres',
@@ -28,7 +29,7 @@ export class RegisterDto {
   })
   @IsString()
   @MinLength(8)
-  password: string;
+  password!: string;
 
   @ApiPropertyOptional({
     description: 'Telefone de contato no formato BR',

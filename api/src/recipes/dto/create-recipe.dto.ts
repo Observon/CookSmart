@@ -12,15 +12,16 @@ import {
   Min,
   ValidateNested,
 } from 'class-validator';
+import type { CreateRecipeContract } from '@cooksmart/contracts';
 
 import { RecipeIngredientInputDto } from './recipe-ingredient-input.dto';
 
-export class CreateRecipeDto {
+export class CreateRecipeDto implements CreateRecipeContract {
   @ApiProperty({ description: 'Nome da receita', maxLength: 100 })
   @IsString()
   @IsNotEmpty()
   @MaxLength(100)
-  name: string;
+  name!: string;
 
   @ApiPropertyOptional({ description: 'Descrição opcional da receita' })
   @IsOptional()
@@ -34,7 +35,7 @@ export class CreateRecipeDto {
   })
   @IsNumber({ maxDecimalPlaces: 0 })
   @IsPositive()
-  servings: number;
+  servings!: number;
 
   @ApiPropertyOptional({
     description: 'Margem de lucro percentual utilizada no cálculo do preço sugerido',
@@ -50,5 +51,5 @@ export class CreateRecipeDto {
   @ArrayMinSize(1)
   @ValidateNested({ each: true })
   @Type(() => RecipeIngredientInputDto)
-  ingredients: RecipeIngredientInputDto[];
+  ingredients!: RecipeIngredientInputDto[];
 }

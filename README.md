@@ -252,9 +252,39 @@ Ambos dependem de `useAuth()` para obter o token JWT. Ao integrar novas telas, p
 - Atualização automática de preços dos ingredientes
 - Histórico de transações
 
+### Funcionalidades Futuras
+
+#### Autenticação e Segurança
+- [ ] Verificação de email - Tela de confirmação após cadastro com reenvio de código (alta prioridade)
+- [ ] Autenticação de dois fatores (2FA) - Adicionar camada extra de segurança nas configurações (média prioridade)
+- [ ] Sessões ativas - Mostrar dispositivos conectados e permitir desconectar remotamente (prioridade baixa)
+
+#### Funcionalidades da Conta
+- [ ] Upload de foto de perfil - Implementar upload real de imagem usando Vercel Blob ou outra ferramenta
+- [ ] Excluir conta - Flow completo com confirmação e aviso sobre perda de dados (alta prioridade)
+- [ ] Alterar email - Similar ao reset de senha, com verificação do novo email (prioridade média)
+- [ ] Exportar dados - Permitir download de todas as receitas e ingredientes em JSON/CSV (prioridade baixa)
+
+#### Experiência do Usuário
+- [ ] Modo escuro - Toggle nas configurações com persistência da preferência (prioridade baixa)
+- [ ] Tutorial/Onboarding - Guia inicial para novos usuários explicando as funcionalidades (prioridade média)
+- [ ] Notificações - Preferências de notificações por email nas configurações (prioridade baixa)
+- [ ] Idioma - Seletor de idioma (PT/EN/ES) nas configurações (prioridade baixa)
+
+#### Funcionalidades do App
+- [ ] Compartilhar receitas - Gerar link ou QR code para compartilhar receitas (prioridade média)
+- [ ] Favoritos - Marcar receitas favoritas para acesso rápido (prioridade média)
+- [ ] Categorias/Tags - Organizar receitas por tipo, como sobremesa ou prato principal (prioridade média)
+- [ ] Histórico de preços - Rastrear variação de custo dos ingredientes ao longo do tempo (prioridade média)
+
+#### Páginas Legais
+- [ ] Termos de uso - Página com termos e condições (prioridade a definir)
+- [ ] Política de privacidade - Como os dados são tratados (prioridade a definir)
+- [ ] Sobre - Informações sobre o app e versão (prioridade a definir)
+
 ### Despesas Operacionais (Roadmap)
 - Funcionalidade planejada para futuras versões
-- Será integrado ao cálculo de preço final permitindo considerar custos fixos e variáveis na precificação
+- Será integrada ao cálculo de preço final, permitindo considerar custos fixos e variáveis na precificação
 
 ## 📸 OCR de Notas Fiscais com Amazon Textract
 
